@@ -1,0 +1,16 @@
+version: '3.8'
+
+services:
+  group-keeper-bot:
+    image: ghcr.io/pterko/group-keeper-bot:dev
+    environment:
+      - MONGODB_URI=mongodb://mongo:27017
+    env_file:
+      - .env
+  
+  mongo:
+    image: mongo:latest
+    ports:
+      - 27017:27017
+    env_file:
+      - .env
