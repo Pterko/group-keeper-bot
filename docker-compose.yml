@@ -10,6 +10,8 @@ services:
   
   mongo:
     image: mongo:latest
+    volumes:
+      - ../mongo-data:/data/db
     ports:
       - 27017:27017
     env_file:
