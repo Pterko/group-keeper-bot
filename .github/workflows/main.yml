@@ -6,9 +6,13 @@ on:
   pull_request:
     branches: [main, dev]
 
+
+
 jobs:
   build-and-test:
     runs-on: ubuntu-latest
+    environment:
+      name: ${{ github.ref_name }}
     permissions:
       contents: read
       packages: write
@@ -40,6 +44,10 @@ jobs:
       # Push Docker Image with branch name
       - name: Push Docker image with branch name
         run: docker push ghcr.io/pterko/group-keeper-bot:${{ github.ref_name }}
+
+      - name: Trigger Watchtower to update containers
+        run: |
+          curl -X POST ${{ env.WATCHTOWER_UPDATE_URL }}
 
   # auto-merge:
   #   if: github.event_name == 'pull_request' && github.actor == 'dependabot[bot]'
