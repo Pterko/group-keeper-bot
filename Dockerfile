@@ -20,5 +20,7 @@ RUN cd new-bot && npm run build
 # Your app binds to a port (e.g., 3000). EXPOSE it if needed.
 EXPOSE 3000
 
+WORKDIR /usr/src/app/new-bot
+
 # Define the command to run your app using CMD which defines your runtime
-CMD ["node", "new-bot/build/src/main.js"]
+CMD ["node", "build/src/main.js"]
