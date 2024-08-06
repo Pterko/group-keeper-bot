@@ -8,20 +8,17 @@ WORKDIR /usr/src/app
 COPY . .
 
 # Change directory to new-bot for npm operations
-WORKDIR /usr/src/app/new-bot
+WORKDIR /usr/src/app
 
 # Install any needed packages specified in package.json
 # This is done after changing directory to new-bot
-RUN npm install
+RUN cd new-bot && npm install
 
 # Build the application
-RUN npm run build
-
-# Change back to the parent directory if needed
-WORKDIR /usr/src/app
+RUN cd new-bot && npm run build
 
 # Your app binds to a port (e.g., 3000). EXPOSE it if needed.
 EXPOSE 3000
 
 # Define the command to run your app using CMD which defines your runtime
-CMD ["node", "build/src/main.js"]
+CMD ["node", "new-bot/build/src/main.js"]

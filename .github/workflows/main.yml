@@ -27,7 +27,7 @@ jobs:
 
       # Build Docker Image
       - name: Build Docker image
-        run: docker build -t ghcr.io/pterko/group-keeper-bot:${{ github.sha }} -t ghcr.io/pterko/group-keeper-bot:${{ github.ref_name }} ./new-bot
+        run: docker build -t ghcr.io/pterko/group-keeper-bot:${{ github.sha }} -t ghcr.io/pterko/group-keeper-bot:${{ github.ref_name }} .
 
       # Log in to GitHub Container Registry
       - name: Log in to GitHub Container Registry
