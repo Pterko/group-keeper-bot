@@ -24,4 +24,4 @@ WORKDIR /usr/src/app
 EXPOSE 3000
 
 # Define the command to run your app using CMD which defines your runtime
-CMD ["node", "new-bot/build/src/main.js"]
+CMD ["node", "build/src/main.js"]
