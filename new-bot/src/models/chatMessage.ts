@@ -1,5 +1,4 @@
 import mongoose from "mongoose";
-import { Message } from "@grammyjs/types";
 
 const chatMessageSchema = new mongoose.Schema({
   userId: {
