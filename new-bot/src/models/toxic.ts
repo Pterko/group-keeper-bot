@@ -15,4 +15,4 @@ const toxicSchema = new mongoose.Schema({
   },
 }, { timestamps: true });
 
-export const toxicModel = mongoose.model("toxic", toxicSchema);
+export const toxicModel = mongoose.model("toxics", toxicSchema);
