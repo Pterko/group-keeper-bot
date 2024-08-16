@@ -51,7 +51,7 @@ jobs:
 
       - name: Trigger Watchtower to update containers
         run: |
-          curl -X POST ${{ secrets.WATCHTOWER_UPDATE_URL }}
+          curl -H "Authorization: Bearer ${{ secrets.WATCHTOWER_API_TOKEN }}" -X POST ${{ secrets.WATCHTOWER_UPDATE_URL }}
 
   # auto-merge:
   #   if: github.event_name == 'pull_request' && github.actor == 'dependabot[bot]'
