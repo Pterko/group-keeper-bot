@@ -11,8 +11,12 @@ on:
 jobs:
   build-and-test:
     runs-on: ubuntu-latest
-    environment:
-      name: ${{ github.ref_name }}
+    environment: |-
+      ${{
+         github.ref_name == 'main' && 'Prod'
+      || github.ref_name == 'dev'    && 'Dev'
+      ||                                'staging'
+      }}
     permissions:
       contents: read
       packages: write
