@@ -6,6 +6,7 @@ import type { I18nFlavor } from "@grammyjs/i18n";
 import type { ParseModeFlavor } from "@grammyjs/parse-mode";
 import type { Logger } from "#root/logger.js";
 import { FileFlavor } from "@grammyjs/files";
+import { ChatMembersFlavor } from "@grammyjs/chat-members";
 
 export type SessionData = {
   // field?: string;
@@ -31,7 +32,8 @@ export type Context = FileFlavor<
         AutoChatActionFlavor
     >
   >
-> & VideoConverterContext;
+> & VideoConverterContext
+  & ChatMembersFlavor;
 
 interface Dependencies {
   logger: Logger;

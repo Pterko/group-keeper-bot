@@ -1,25 +1,26 @@
-# Use an official Node runtime based on Debian as a parent image
+# Use an official Node.js runtime as a parent image, based on Debian
 FROM node:18-bullseye
 
-# Set the working directory in the container
+# Set the working directory in the container to the parent of new-bot
 WORKDIR /usr/src/app
 
-# Copy package.json and package-lock.json (or npm-shrinkwrap.json) files
-COPY package*.json ./
-
-# Install any needed packages
-# Note: Debian-based images often have the necessary build tools pre-installed,
-# but you can uncomment the next line if additional packages are needed
-RUN apt-get update && apt-get install -y python3 build-essential pkg-config libcairo2-dev libjpeg-dev libpango1.0-dev libgif-dev
-
-# Install Node.js dependencies
-RUN npm install --only=production
-
-# Bundle app source inside the docker image
+# Copy the entire parent directory contents into the working directory
 COPY . .
+
+# Change directory to new-bot for npm operations
+WORKDIR /usr/src/app
+
+# Install any needed packages specified in package.json
+# This is done after changing directory to new-bot
+RUN cd new-bot && npm install
+
+# Build the application
+RUN cd new-bot && npm run build
 
 # Your app binds to a port (e.g., 3000). EXPOSE it if needed.
 EXPOSE 3000
 
-# Define the command to run your app
-CMD [ "npm", "start" ]
+WORKDIR /usr/src/app/new-bot
+
+# Define the command to run your app using CMD which defines your runtime
+CMD ["node", "build/src/main.js"]
