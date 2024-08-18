@@ -1,7 +1,10 @@
 import { autoChatAction } from "@grammyjs/auto-chat-action";
 import { hydrate } from "@grammyjs/hydrate";
 import { hydrateReply, parseMode } from "@grammyjs/parse-mode";
+import { chatMembers, type ChatMembersFlavor } from "@grammyjs/chat-members";
+import { MongoDBAdapter, ISession } from "@grammyjs/storage-mongodb";
 import { BotConfig, StorageAdapter, Bot as TelegramBot, session } from "grammy";
+import mongoose from "mongoose";
 import {
   Context,
   SessionData,
@@ -27,13 +30,21 @@ import { toxicFeature } from "./features/toxic.js";
 import { videoConventerFeature } from "./features/video-converter.js";
 import { llamaFeature } from "./features/llama.js";
 import { furryFeature } from "./features/furry.js";
+import { ChatMember } from "@grammyjs/types";
+import { logChatMessage } from "./middlewares/log-chat-message.js";
 
 type Options = {
   sessionStorage?: StorageAdapter<SessionData>;
   config?: Omit<BotConfig<Context>, "ContextConstructor">;
 };
 
+
 export function createBot(token: string, options: Options = {}) {
+
+  const chatMembersStorageAdapter = new MongoDBAdapter<ChatMember>({ collection: mongoose.connection.db.collection<ISession>(
+    "chatMembers",
+  )});
+
   const { sessionStorage } = options;
   const bot = new TelegramBot(token, {
     ...options.config,
@@ -46,9 +57,12 @@ export function createBot(token: string, options: Options = {}) {
   bot.api.config.use(hydrateFiles(bot.token));
 
 
-  if (config.isDev) {
+  // if (config.isDev) {
     protectedBot.use(updateLogger());
-  }
+  // }
+
+
+  protectedBot.use(chatMembers(chatMembersStorageAdapter, { enableAggressiveStorage: true }));
 
   protectedBot.use(autoChatAction(bot.api));
   protectedBot.use(hydrateReply);
@@ -60,6 +74,8 @@ export function createBot(token: string, options: Options = {}) {
     }),
   );
   protectedBot.use(i18n);
+
+  protectedBot.use(logChatMessage);
 
   // Handlers
   protectedBot.use(furryFeature);
@@ -77,6 +93,11 @@ export function createBot(token: string, options: Options = {}) {
   if (isMultipleLocales) {
     protectedBot.use(languageFeature);
   }
+
+
+  bot.catch((err) => {
+    logger.error(`Error in bot: ${err.error} , while parsing update ${JSON.stringify(err.ctx)}`);
+  }) 
 
   // must be the last handler
   // protectedBot.use(unhandledFeature);

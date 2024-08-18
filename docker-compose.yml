@@ -1,0 +1,18 @@
+version: '3.8'
+
+services:
+  group-keeper-bot:
+    image: ghcr.io/pterko/group-keeper-bot:dev
+    pull_policy: always
+    env_file: .env
+  
+
+  watchtower:
+    image: containrrr/watchtower
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    command: --http-api-update
+    environment:
+      - WATCHTOWER_HTTP_API_TOKEN=hello
+    ports:
+      - 8080:8080

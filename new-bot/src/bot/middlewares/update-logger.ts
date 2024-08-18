@@ -15,10 +15,17 @@ export function updateLogger(): Middleware<Context> {
       return previous(method, payload, signal);
     });
 
+    // ctx.logger.debug({
+    //   msg: "update received",
+    //   update: getUpdateInfo(ctx),
+    // });
+
     ctx.logger.debug({
       msg: "update received",
-      update: getUpdateInfo(ctx),
-    });
+      text: ctx.message?.text,
+      chatId: ctx.message?.chat.id,
+      userId: ctx.message?.from.id,
+    })
 
     const startTime = performance.now();
     try {

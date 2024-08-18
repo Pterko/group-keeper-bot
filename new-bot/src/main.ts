@@ -44,8 +44,11 @@ try {
         }
       }
     });
+    await bot.init();
+    
     logger.info({
-      msg: "bot running..."
+      msg: "bot running as:",
+      bot: bot.botInfo
     })
   }
 } catch (error) {
