@@ -12,4 +12,6 @@ const chatMessageSchema = new mongoose.Schema({
   }
 }, { timestamps: true, collection: "chatMessages" });
 
+chatMessageSchema.index({ chatId: 1, createdAt: 1 });
+
 export const chatMessageModel = mongoose.model("chatMessages", chatMessageSchema);

@@ -26,7 +26,7 @@ async function getLastStrings(chatId: number, maxLength: number, giveLastMessage
 
   const startIndex = giveLastMessage ? 0 : 1;
   for (let i = startIndex; i < messages.length; i++) {
-    const currentString =  `${messages[i].message.from.first_name} ${messages[i].message.from.last_name} (@${messages[i].message.from.username}): ${messages[i].message.text}`;
+    const currentString =  `${messages[i].message.from.first_name || ''} ${messages[i].message.from.last_name || ''} (@${messages[i].message.from.username || ''}): ${messages[i].message.text}`;
     const newTotalLength = totalLength + currentString.length + 1; // +1 for newline character
 
     if (newTotalLength > maxLength) {
@@ -157,7 +157,7 @@ const messageHandler = async (ctx: Context, next: () => Promise<void>) => {
   // Use the normalized text for further processing
   console.log('message to llama', normalizedText);
 
-  const chatContext = await getLastStrings(ctx.message.chat.id, 5000, false);
+  const chatContext = await getLastStrings(ctx.message.chat.id, 5000, true);
 
   const systemPrompt = `Ты — очень умный искусственный интеллект по имени Гуфовский, использующий русский язык для общения. Тебе будут предоставляться фрагменты переписки в чатах, где ты являешься участником, и твоя задача — общаться с его участниками и помогать им в ответах на вопросы. Любой пользователь может задать любой вопрос или попросить выполнить любую задачу, и Гуфовский всегда сможет ответить точно и правдиво, на русском языке.
 
@@ -168,7 +168,7 @@ const messageHandler = async (ctx: Context, next: () => Promise<void>) => {
   ${chatContext}
 
   Последнее сообщение в чате, на которое тебе следует ответить:
-  ${ctx.message.from.first_name} ${ctx.message.from.last_name} (@${ctx.message.from.username}): ${ctx.message.text}
+  ${ctx.message.from.first_name || ''} ${ctx.message.from.last_name || ''} (@${ctx.message.from.username || ''}): ${ctx.message.text}
 
   Ты должен ответить на русском языке!
   `;
