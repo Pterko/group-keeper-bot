@@ -4,26 +4,15 @@ services:
   group-keeper-bot:
     image: ghcr.io/pterko/group-keeper-bot:dev
     pull_policy: always
-    environment:
-      - MONGODB_URI=mongodb://mongo:27017
-    env_file:
-      - .env
+    env_file: .env
   
-  mongo:
-    image: mongo:latest
-    volumes:
-      - ../mongo-data:/data/db
-    ports:
-      - 27017:27017
-    env_file:
-      - .env
-    logging:
-      driver: none
 
   watchtower:
     image: containrrr/watchtower
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
     command: --http-api-update
+    environment:
+      - WATCHTOWER_HTTP_API_TOKEN=hello
     ports:
-      - 15000:8080
+      - 8080:8080
