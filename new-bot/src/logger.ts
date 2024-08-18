@@ -14,16 +14,28 @@ export const logger = pino({
                 ignore: "pid,hostname",
                 colorize: true,
                 translateTime: true,
+                singleLine: true,
               },
             },
           ]
-        : [
-            {
-              target: "pino/file",
-              level: config.LOG_LEVEL,
-              options: {},
+        : 
+        [
+          {
+            target: "pino-pretty",
+            level: config.LOG_LEVEL,
+            options: {
+              ignore: "pid,hostname",
+              colorize: true,
+              translateTime: true,
+              singleLine: true,
             },
-          ]),
+          },
+            // {
+            //   target: "pino/file",
+            //   level: config.LOG_LEVEL,
+            //   options: {},
+            // },
+        ]),
     ],
   },
 });

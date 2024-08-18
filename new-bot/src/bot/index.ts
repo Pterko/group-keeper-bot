@@ -57,9 +57,9 @@ export function createBot(token: string, options: Options = {}) {
   bot.api.config.use(hydrateFiles(bot.token));
 
 
-  if (config.isDev) {
+  // if (config.isDev) {
     protectedBot.use(updateLogger());
-  }
+  // }
 
 
   protectedBot.use(chatMembers(chatMembersStorageAdapter, { enableAggressiveStorage: true }));
