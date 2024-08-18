@@ -61,7 +61,7 @@ feature.on("message:entities:url", logHandle("message-entities-url"), async (ctx
       videoFileUrl = result.url;
     }
 
-    if (hostname === 'youtube.com') {
+    if (hostname === 'youtube.com' || hostname === 'youtu.be') {
       ctx.replyWithChatAction('upload_video');
       // For youtube, we should firstly check duration of a video
       // And downlaod video only if it smaller than 90 seconds
