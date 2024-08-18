@@ -54,15 +54,15 @@ feature.on("message:entities:url", logHandle("message-entities-url"), async (ctx
 
     let videoFileUrl;
     if (hostname === 'instagram.com') {
-      ctx.chatAction = 'upload_video';
+      ctx.replyWithChatAction('upload_video');
       // Imagine that this url is a valid Instagram video
 
       const result = await fetchInstagramVideoUrl(url.text);
       videoFileUrl = result.url;
     }
 
-    if (hostname === 'youtube.com') {
-      ctx.chatAction = 'upload_video';
+    if (hostname === 'youtube.com' || hostname === 'youtu.be') {
+      ctx.replyWithChatAction('upload_video');
       // For youtube, we should firstly check duration of a video
       // And downlaod video only if it smaller than 90 seconds
       const videoId = extractYoutubeVideoId(url.text);
@@ -83,7 +83,7 @@ feature.on("message:entities:url", logHandle("message-entities-url"), async (ctx
 
     // Twitter parsing
     if (hostname == 'twitter.com' || hostname == 'x.com') {
-      ctx.chatAction = 'upload_video';
+      ctx.replyWithChatAction('upload_video');
       // Imagine that this url is a valid Twitter video
 
       const result = await fetchTwitterVideoUrl(url.text);
@@ -105,8 +105,7 @@ feature.on("message:entities:url", logHandle("message-entities-url"), async (ctx
         await ctx.replyWithVideo(new InputFile(new URL(videoFileUrl)));
       }
     }
-    ctx.chatAction = null;
-    return next();
+    return await next();
   }
 });
 

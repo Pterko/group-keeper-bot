@@ -18,7 +18,7 @@ export const staticPicturesHandler = (folderKey: string) => {
         );
       }
     });
-    await next();
+    await await next();
   };
 };
 
