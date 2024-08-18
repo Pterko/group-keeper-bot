@@ -1,4 +1,5 @@
 import { chatAction } from "@grammyjs/auto-chat-action";
+import { URL } from 'url';
 import { Composer, InputFile } from "grammy";
 import type { Context } from "#root/bot/context.js";
 import { isAdmin } from "#root/bot/filters/index.js";
@@ -8,6 +9,8 @@ import { extractYoutubeVideoId, fetchYoutubeVideoMetadata, fetchYoutubeVideoUrl 
 import axios from 'axios';
 import { addReplyParam } from "@roziscoding/grammy-autoquote";
 
+
+const COBALT_API_URL = 'https://api.cobalt.tools/api/json';
 
 const composer = new Composer<Context>();
 const feature = composer;
@@ -20,12 +23,16 @@ const feature = composer;
 // Instagram:
 // https://www.instagram.com/reel/C8z8kMENNa6/?igsh=MXhzODk5b2VieW9zcA==
 
-feature.on("message:entities:url", logHandle("message-entities-url"), async (ctx) => {
+// Twitter:
+// https://x.com/Catshealdeprsn/status/1824921646181847112
+// https://twitter.com/Catshealdeprsn/status/1824921646181847112
+
+feature.on("message:entities:url", logHandle("message-entities-url"), async (ctx, next) => {
   ctx.api.config.use(addReplyParam(ctx));
 
   const urls = ctx.entities('url');
 
-  ctx.logger.debug('Found URLs:', urls)
+  ctx.logger.debug(`Found URLs: ${JSON.stringify(urls)}`)
 
   // We need to scan if any of the URLs are from desired video platforms
   // We should target to:
@@ -34,15 +41,22 @@ feature.on("message:entities:url", logHandle("message-entities-url"), async (ctx
   // Youtube
 
   for (const url of urls){
+    const parsedUrl = new URL(url.text);
+    const hostname = parsedUrl.hostname.replace(/^www\./, ''); // Remove 'www.' prefix if present
+
+    ctx.logger.debug(`Hostname: "${hostname}"`);
+
     let videoFileUrl;
-    if (url.text.includes('instagram.com')) {
+    if (hostname === 'instagram.com') {
+      ctx.chatAction = 'upload_video';
       // Imagine that this url is a valid Instagram video
 
       const result = await fetchInstagramVideoUrl(url.text);
       videoFileUrl = result.url;
     }
 
-    if (url.text.includes('youtube.com')) {
+    if (hostname === 'youtube.com') {
+      ctx.chatAction = 'upload_video';
       // For youtube, we should firstly check duration of a video
       // And downlaod video only if it smaller than 90 seconds
       const videoId = extractYoutubeVideoId(url.text);
@@ -60,18 +74,34 @@ feature.on("message:entities:url", logHandle("message-entities-url"), async (ctx
       const result = await fetchYoutubeVideoUrl(url.text);
       videoFileUrl = result.url;
     }
+
+    // Twitter parsing
+    if (hostname == 'twitter.com' || hostname == 'x.com') {
+      ctx.chatAction = 'upload_video';
+      // Imagine that this url is a valid Twitter video
+
+      const result = await fetchTwitterVideoUrl(url.text);
+      ctx.logger.debug(`Twitter result: ${JSON.stringify(result)}`);
+      videoFileUrl = result.url;
+    }
+
+
+
+
  
 
     // After processing urls, we should look if we found some video file
     if (videoFileUrl){
-      ctx.chatAction = 'upload_video';
       try {
         await ctx.replyWithVideo(videoFileUrl, {});
       } catch (error) {
         ctx.logger.error('Error sending video:', error);
-
         await ctx.replyWithVideo(new InputFile(new URL(videoFileUrl)));
       }
+    }
+    else {
+      ctx.chatAction = null;
+      return next();
     }
   }
 });
@@ -93,11 +123,32 @@ async function fetchFallbackInstagramVideoUrl(instagramUrl: string) {
   }
 }
 
+async function fetchTwitterVideoUrl(twitterUrl: string) {
+  try {
+    const response = await axios.post(COBALT_API_URL, {
+      url: twitterUrl
+    }, {
+      headers: {
+        Accept: 'application/json',
+        'Content-Type': 'application/json',
+      },
+    });
+
+    if (['success', 'redirect'].includes(response.data.status) && response.data.url) {
+      return { success: true, url: response.data.url };
+    } else {
+      return { success: false, message: response.data };
+    }
+  } catch (error) {
+    console.error('Error calling Cobalt API:', error);
+    return { success: false, message: 'Error calling Cobalt API' };
+  }
+}
+
 // Function to fetch video URL or download video using Cobalt API
 async function fetchInstagramVideoUrl(instagramUrl: string ) {
-  const cobaltEndpoint = 'https://co.wuk.sh/api/json';
   try {
-    const response = await axios.post(cobaltEndpoint, {
+    const response = await axios.post(COBALT_API_URL, {
       url: instagramUrl
     }, {
       headers: {
