@@ -134,7 +134,7 @@ const messageHandler = async (ctx: Context, next: () => Promise<void>) => {
 
   // Update the condition to check for any of the new trigger words with proper boundary checks
   if (
-    !/^(гуфовский|гуфи|гуф|бот)([\s,.!?]|$)/i.test(ctx.message.text) &&
+    !/^(гуфовский|гуфи|гуф)([\s,.!?]|$)/i.test(ctx.message.text) &&
     !randSay
   ) {
     return next();
