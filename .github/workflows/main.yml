@@ -15,7 +15,6 @@ jobs:
       ${{
          github.ref_name == 'main' && 'Prod'
       || github.ref_name == 'dev'  && 'Dev'
-      ||                              'Staging'
       }}
     permissions:
       contents: read
