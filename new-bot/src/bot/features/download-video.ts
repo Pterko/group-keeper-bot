@@ -99,10 +99,8 @@ feature.on("message:entities:url", logHandle("message-entities-url"), async (ctx
         await ctx.replyWithVideo(new InputFile(new URL(videoFileUrl)));
       }
     }
-    else {
-      ctx.chatAction = null;
-      return next();
-    }
+    ctx.chatAction = null;
+    return next();
   }
 });
 
