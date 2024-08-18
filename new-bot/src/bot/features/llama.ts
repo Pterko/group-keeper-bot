@@ -107,8 +107,6 @@ const messageHandler = async (ctx: Context, next: () => Promise<void>) => {
     return next();
   }
 
-  console.log(ctx.message);
-
   let randSay = false;
   if (!chatHistory[ctx.message.chat.id]) {
     chatHistory[ctx.message.chat.id] = [];
