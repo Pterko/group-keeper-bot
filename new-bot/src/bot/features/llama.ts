@@ -74,19 +74,26 @@ const queue = async.queue(async (task: LLamaTask, callback) => {
 
     console.log(botAnswer);
 
-    await chatMessageModel.create({
-      chatId: task.ctx.message.chat.id,
-      userId: task.ctx.me.id, // Assuming `me.id` gives the bot's user ID
-      message: {
-        text: ans,
-        from: {
-          id: task.ctx.me.id,
-          first_name: botName,
-          username: task.ctx.me.username
-        },
-        message_id: botAnswer.message_id, // Assuming this is how you get the message ID of the reply
-      }
-    });
+    try {
+      await chatMessageModel.create({
+        chatId: task.ctx.message.chat.id,
+        userId: task.ctx.me.id, // Assuming `me.id` gives the bot's user ID
+        message: {
+          text: ans,
+          from: {
+            id: task.ctx.me.id,
+            first_name: botName,
+            username: task.ctx.me.username
+          },
+          message_id: botAnswer.message_id, // Assuming this is how you get the message ID of the reply
+          }
+        });
+    } catch (error) {
+      task.ctx.logger.error({
+        msg: 'Error while saving message to db',
+        error: error
+      });
+    }
 
   } catch (error) {
     console.error('Error:', error);
