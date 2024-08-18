@@ -1,6 +1,8 @@
 name: Main-Pipeline
 
+
 on:
+  workflow_dispatch:
   push:
     branches: [main, dev]
   #pull_request:
