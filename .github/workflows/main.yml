@@ -14,8 +14,8 @@ jobs:
     environment: |-
       ${{
          github.ref_name == 'main' && 'Prod'
-      || github.ref_name == 'dev'    && 'Dev'
-      ||                                'staging'
+      || github.ref_name == 'dev'  && 'Dev'
+      ||                              'Staging'
       }}
     permissions:
       contents: read
