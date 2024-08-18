@@ -174,7 +174,6 @@ composer.on("message:entities:url", logHandle("webm-url"),
 composer.on(
   "message:document",
   async (ctx, next) => {
-    console.log("handled in webm: ", ctx.message);
     if (!ctx.message) {
       return next();
     }
