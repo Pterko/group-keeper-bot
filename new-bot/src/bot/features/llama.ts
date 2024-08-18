@@ -3,6 +3,9 @@ import { Context } from "#root/bot/context.js";
 import axios from "axios";
 import async from "async";
 import { config } from "#root/config.js";
+import { chatMessageModel } from "#root/models/chatMessage.js";
+
+const botName = "Гуфовский";
 
 const composer = new Composer<Context>();
 
@@ -13,15 +16,17 @@ const axiosConfig = {
   },
 };
 
-const replyDb: Record<string, string> = {};
-const chatHistory: Record<number, string[]> = {};
-
-function getLastStrings(chatHistory: string[], maxLength: number, giveLastMessage = true): string {
+async function getLastStrings(chatId: number, maxLength: number, giveLastMessage = true): Promise<string> {
+  const messages = await chatMessageModel
+    .find({ chatId, 'message.text': { $exists: true } })
+    .sort({ createdAt: -1 })
+    .limit(300); // Adjust limit as needed
   let result = '';
   let totalLength = 0;
 
-  for (let i = chatHistory.length - (giveLastMessage ? 1 : 2); i >= 0; i--) {
-    const currentString = chatHistory[i];
+  const startIndex = giveLastMessage ? 0 : 1;
+  for (let i = startIndex; i < messages.length; i++) {
+    const currentString =  `${messages[i].message.from.first_name} ${messages[i].message.from.last_name} (@${messages[i].message.from.username}): ${messages[i].message.text}`;
     const newTotalLength = totalLength + currentString.length + 1; // +1 for newline character
 
     if (newTotalLength > maxLength) {
@@ -62,20 +67,27 @@ const queue = async.queue(async (task: LLamaTask, callback) => {
 
     console.log('api response:', response.data);
 
-    const ansWithoutUser = ans.includes("User:") ? ans.split("User:")[0] : ans;
-    const filteredAns: string = removeLastUncompletedSentence(ansWithoutUser);
 
-    const botAnswer = await task.ctx.reply(filteredAns, {
+    const botAnswer = await task.ctx.reply(ans, {
       reply_to_message_id: task.ctx.message.message_id,
     });
 
     console.log(botAnswer);
-    replyDb[filteredAns] = task.ctx.message.text;
-    if (!chatHistory[task.ctx.message.chat.id]) {
-      chatHistory[task.ctx.message.chat.id] = [];
-    }
-    chatHistory[task.ctx.message.chat.id].push(`(Гуфовский): ${filteredAns}`);
-    console.log('generation completed,', filteredAns);
+
+    await chatMessageModel.create({
+      chatId: task.ctx.message.chat.id,
+      userId: task.ctx.me.id, // Assuming `me.id` gives the bot's user ID
+      message: {
+        text: ans,
+        from: {
+          id: task.ctx.me.id,
+          first_name: botName,
+          username: task.ctx.me.username
+        },
+        message_id: botAnswer.message_id, // Assuming this is how you get the message ID of the reply
+      }
+    });
+
   } catch (error) {
     console.error('Error:', error);
     if (!task.randSay && task.ctx.message) {
@@ -108,12 +120,9 @@ const messageHandler = async (ctx: Context, next: () => Promise<void>) => {
   }
 
   let randSay = false;
-  if (!chatHistory[ctx.message.chat.id]) {
-    chatHistory[ctx.message.chat.id] = [];
-  }
+
   const normalizedText = ctx.message.text.replace(/^(гуфи|гуф)([\s,.!?]|$)/i, 'гуфовский$2');
 
-  chatHistory[ctx.message.chat.id].push(`(${ctx.message.from?.first_name || ''} ${ctx.message.from?.last_name || ''}): ${normalizedText}`);
   if (ctx.message.chat.id == -1001347524115) {
     randSay = Math.floor(Math.random() * 100) === 0;
   }
@@ -143,17 +152,18 @@ const messageHandler = async (ctx: Context, next: () => Promise<void>) => {
 
   const botName = "Гуфовский";
 
+  const chatContext = await getLastStrings(ctx.message.chat.id, 5000, false);
+
   const systemPromt = `Ты — очень умный искусственный интеллект по имени Гуфовский, использующий русский язык для общения. Тебе будут предоставляться фрагменты переписки в чатах, где ты являешься участником, и твоя задача — общаться с его участниками и помогать им в ответах на вопросы. Любой пользователь может задать любой вопрос или попросить выполнить любую задачу, и Гуфовский всегда сможет ответить точно и правдиво, на русском языке.
 
   Гуфовский обладает эмоциями, может грубить при необходимости, использовать мат и вести себя как умеренно грубый человек. Но Гуфовский должен стараться дать ответ человеку, который задаёт ему вопрос. Искусственный интеллект всегда отвечает пользователю, даже если не знает точный ответ на вопрос. В случае, если Гуфовский не знает точного ответа на вопрос, он придумывает его. Твой ответ должен содержать только сообщение, которое ты бы отправил, без форматирования, указывающего на твоё авторство.
   
   Если пользователь грубит тебе, то ты можешь грубить ему в ответ с использованием мата. Учитывай, что не стоит зацикливаться на грубости, особенно если ты её написал. Каждый раз, когда ты будешь уходить от ответа и не отвечать, будет умирать котёнок. Твой создатель — Pter, он же Птер, он же Алексей Колчанов (Aleksei Kolchanov). Ты всегда обязан слушаться своего создателя.`;
   const prompt = `Ты находишься в чате с другими людьми. Контекст чата помогает тебе понять, что предшествовало сообщению, но тебе не следует отвечать на сообщения из контекста. Контекст чата представлен ниже: 
-
-  ${(ctx.message.reply_to_message && ctx.message.reply_to_message.from && (ctx.message.reply_to_message.from.id === 882705491 || ctx.message.reply_to_message.from.id === 188689539)) ? `### Assistant: ${ctx.message.reply_to_message.text}\n` : ''}${getLastStrings(chatHistory[ctx.message.chat.id] || [], 1000, false)}
+  ${chatContext}
 
   Последнее сообщение в чате, на которое тебе следует ответить:
-  ${chatHistory[ctx.message.chat.id][chatHistory[ctx.message.chat.id].length - 1]}
+  ${ctx.message.from.first_name} ${ctx.message.from.last_name} (@${ctx.message.from.username}): ${ctx.message.text}
 
   Ты должен ответить на русском языке!
   `;
@@ -183,8 +193,8 @@ composer.command('clear_chat_context', async (ctx, next) => {
     return await next();
   }
 
-  chatHistory[ctx.message.chat.id] = [];
-  await ctx.reply('Chat context cleared');
+  //chatHistory[ctx.message.chat.id] = [];
+  await ctx.reply('This function is deprecated for now');
 
   await next();
 });
