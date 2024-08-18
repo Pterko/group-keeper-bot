@@ -41,7 +41,13 @@ feature.on("message:entities:url", logHandle("message-entities-url"), async (ctx
   // Youtube
 
   for (const url of urls){
-    const parsedUrl = new URL(url.text);
+    let parsedUrl;
+    try {
+      parsedUrl = new URL(url.text);
+    } catch (error) {
+      ctx.logger.error('Error parsing URL:', error);
+      continue;
+    }
     const hostname = parsedUrl.hostname.replace(/^www\./, ''); // Remove 'www.' prefix if present
 
     ctx.logger.debug(`Hostname: "${hostname}"`);
