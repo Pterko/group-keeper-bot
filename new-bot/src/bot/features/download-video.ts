@@ -67,13 +67,13 @@ feature.on("message:entities:url", logHandle("message-entities-url"), async (ctx
       // And downlaod video only if it smaller than 90 seconds
       const videoId = extractYoutubeVideoId(url.text);
       if (!videoId) {
-        ctx.logger.error('Failed to extract video ID from URL:', url.text);
+        ctx.logger.error('Failed to extract video ID from URL:', { text: url.text });
         continue;
       }
 
       const videoMetadata = await fetchYoutubeVideoMetadata(videoId);
       if (videoMetadata.secondsDuration > 90) {
-        ctx.logger.error('Video duration is too long:', videoMetadata.secondsDuration);
+        ctx.logger.error('Video duration is too long:', { duration: videoMetadata.secondsDuration });
         continue;
       }
 
