@@ -39,7 +39,6 @@ const handleWebm = async (ctx: Context, next: () => Promise<void>) => {
     return next();
   }
 
-  console.log("handleWebm");
   const startDownload = Date.now();
 
   if (!ctx?.videoConverterState?.url) {

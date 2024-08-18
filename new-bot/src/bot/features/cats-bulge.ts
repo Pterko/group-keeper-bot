@@ -43,7 +43,7 @@ cv['onRuntimeInitialized'] = () => {
   const data = new Uint8Array(xmlArrayBuffer);
   cv.FS_createDataFile('/', 'classifier.xml', data, true, false, false);
   classifier.load('/classifier.xml');
-  clearUnusedListeners();
+  //clearUnusedListeners();
 };
 
 composer.on(["message:text", "message:photo"], async (ctx, next) => {
