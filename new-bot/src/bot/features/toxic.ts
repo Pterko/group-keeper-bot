@@ -9,21 +9,21 @@ composer.hears([/^токс$/i, /^токсик$/i, /^токсично$/i, /^то�
   console.log('токс ресивед', ctx.message);
 
   if (!ctx.message) {
-    return next();
+    return await next();
   }
 
   // skip for тач
   if (ctx.message.chat.id === -1001526858418) {
-    return next();
+    return await next();
   }
 
   if (!ctx.message?.reply_to_message?.from?.id) {
     await ctx.reply("А кто токсил-то? Реплайни на него.", { reply_to_message_id: ctx.message.message_id });
-    return next();
+    return await next();
   }
   if (ctx.message?.reply_to_message?.from?.id === ctx.message?.from?.id) {
     await ctx.reply("Ты дебил сам на себя токсить?", { reply_to_message_id: ctx.message.message_id });
-    return next();
+    return await next();
   }
 
   const updatedToxic = await toxicModel.findOneAndUpdate({
@@ -35,17 +35,17 @@ composer.hears([/^токс$/i, /^токсик$/i, /^токсично$/i, /^то�
   }, { new: true, upsert: true });
 
   await ctx.reply(`Уууу, жёсткий токс. Я добавил ${ctx.message.reply_to_message.from.first_name} очко токса. Счёт: ${updatedToxic.toxicCounter}`, { reply_to_message_id: ctx.message.message_id });
-  next();
+  await next();
 });
 
 composer.command('toxic', async (ctx, next) => {
   if (!ctx.message) {
-    return next();
+    return await next();
   }
   // skip for тач
   if (ctx.message.chat.id === -1001526858418) {
     await ctx.reply('Эта фича отключена в этом чате', { disable_notification: true });
-    return next();
+    return await next();
   }
 
   const toxicTable = await toxicModel.find({ chatId: ctx.message.chat.id }).sort({ toxicCounter: 'desc' }).limit(10).exec();

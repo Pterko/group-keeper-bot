@@ -4,19 +4,19 @@ import { logHandle } from "#root/bot/helpers/logging.js";
 
 const composer = new Composer<Context>();
 
-composer.hears("хуисик", logHandle("hears-хуисик"), (ctx, next) => {
+composer.hears("хуисик", logHandle("hears-хуисик"), async (ctx, next) => {
   if (!ctx.message){
-    return next();
+    return await next();
   }
   ctx.reply("Ну ты и бяка :c . Гори в аду!", {
     reply_to_message_id: ctx.message.message_id,
   });
-  return next();
+  return await next();
 });
 
-composer.hears(/[Сс]пасибо/msg, logHandle("hears-спасибо"), (ctx, next) => {
+composer.hears(/[Сс]пасибо/msg, logHandle("hears-спасибо"), async (ctx, next) => {
   if (!ctx.message){
-    return next();
+    return await next();
   }
   if (
     ctx.message.reply_to_message &&
@@ -27,17 +27,17 @@ composer.hears(/[Сс]пасибо/msg, logHandle("hears-спасибо"), (ctx,
       reply_to_message_id: ctx.message.message_id,
     });
   }
-  return next();
+  return await next();
 });
 
-const nahuiHandler = (ctx: Context, next: NextFunction) => {
+const nahuiHandler = async (ctx: Context, next: NextFunction) => {
   if (!ctx.message){
-    return next();
+    return await next();
   }
   ctx.replyWithSticker("BQADAgADtgAD-6tWBxcZTn3O_9D2Ag", {
     reply_to_message_id: ctx.message.message_id,
   });
-  return next();
+  return await next();
 };
 
 composer.hears("пошел нахуй", logHandle("hears-пошел нахуй"), nahuiHandler);

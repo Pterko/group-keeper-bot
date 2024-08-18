@@ -7,6 +7,7 @@ const bot = new Composer();
 
 export const staticPicturesHandler = (folderKey: string) => {
   return async (ctx: GrammyContext, next: NextFunction) => {
+    throw new Error("Not implemented");
     const catalog = path.join(config.FURRY_PATH, `/${folderKey}`) || `/app/furry/${folderKey}/`;
     fs.readdir(catalog, (err, items) => {
       if (err || !items || items.length === 0) {
@@ -18,7 +19,7 @@ export const staticPicturesHandler = (folderKey: string) => {
         );
       }
     });
-    await next();
+    await await next();
   };
 };
 

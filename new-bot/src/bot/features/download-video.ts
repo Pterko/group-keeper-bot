@@ -106,7 +106,7 @@ feature.on("message:entities:url", logHandle("message-entities-url"), async (ctx
       }
     }
     ctx.chatAction = null;
-    return next();
+    return await next();
   }
 });
 
