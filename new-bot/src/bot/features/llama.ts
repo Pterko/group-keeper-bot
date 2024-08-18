@@ -150,8 +150,6 @@ const messageHandler = async (ctx: Context, next: () => Promise<void>) => {
   // Use the normalized text for further processing
   console.log('message to llama', normalizedText);
 
-  const botName = "Гуфовский";
-
   const chatContext = await getLastStrings(ctx.message.chat.id, 5000, false);
 
   const systemPromt = `Ты — очень умный искусственный интеллект по имени Гуфовский, использующий русский язык для общения. Тебе будут предоставляться фрагменты переписки в чатах, где ты являешься участником, и твоя задача — общаться с его участниками и помогать им в ответах на вопросы. Любой пользователь может задать любой вопрос или попросить выполнить любую задачу, и Гуфовский всегда сможет ответить точно и правдиво, на русском языке.
