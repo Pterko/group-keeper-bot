@@ -104,7 +104,7 @@ function removeLastUncompletedSentence(text: string): string {
 
 const messageHandler = async (ctx: Context, next: () => Promise<void>) => {
   if (!ctx.message || !ctx.message.text) {
-    return next();
+    return await next();
   }
 
   let randSay = false;
@@ -125,7 +125,7 @@ const messageHandler = async (ctx: Context, next: () => Promise<void>) => {
   if (
     ctx.message.forward_origin
   ) {
-    return next();  // Skip further processing for forwarded messages
+    return await next();  // Skip further processing for forwarded messages
   }
 
   // Normalize the trigger word to "гуфовский" for processing and history
@@ -135,7 +135,7 @@ const messageHandler = async (ctx: Context, next: () => Promise<void>) => {
     !/^(гуфовский|гуфи|гуф)([\s,.!?]|$)/i.test(ctx.message.text) &&
     !randSay
   ) {
-    return next();
+    return await next();
   }
 
   // Use the normalized text for further processing
@@ -175,18 +175,18 @@ const messageHandler = async (ctx: Context, next: () => Promise<void>) => {
   await ctx.replyWithChatAction("typing");
   queue.push({ ctx, data, randSay });
 
-  next();
+  await next();
 };
 
 composer.command('clear_chat_context', async (ctx, next) => {
   if (!ctx.message) {
-    return next();
+    return await next();
   }
 
   chatHistory[ctx.message.chat.id] = [];
   await ctx.reply('Chat context cleared');
 
-  next();
+  await next();
 });
 
 composer.hears(/^/i, messageHandler);

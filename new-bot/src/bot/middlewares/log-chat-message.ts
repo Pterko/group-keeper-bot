@@ -16,6 +16,6 @@ export async function logChatMessage(ctx: Context, next: NextFunction) {
   } catch (error) {
     console.error(`Error logging chat message: ${error}`);
   } finally {
-    next();
+    await next();
   }
 }

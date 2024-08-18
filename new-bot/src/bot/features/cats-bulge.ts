@@ -48,7 +48,7 @@ cv['onRuntimeInitialized'] = () => {
 
 composer.on(["message:text", "message:photo"], async (ctx, next) => {
   const message = ctx.message;
-  if (!message) return next();
+  if (!message) return await next();
 
   let itsCat = false;
   let vipukCoeff = 20;
@@ -64,7 +64,7 @@ composer.on(["message:text", "message:photo"], async (ctx, next) => {
       }
     }
   } else {
-    return next();
+    return await next();
   }
 
   console.log('itsCat:', itsCat);
@@ -74,7 +74,7 @@ composer.on(["message:text", "message:photo"], async (ctx, next) => {
   if (!photoArray?.length) return next();
 
   const photo = photoArray.pop();
-  if (!photo) return next();
+  if (!photo) return await next();
   const file = await ctx.api.getFile(photo.file_id);
 
   const imageUrl = file.getUrl();

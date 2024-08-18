@@ -36,15 +36,11 @@ jobs:
 
       # Build Docker Image
       - name: Build Docker image
-        run: docker build -t ghcr.io/pterko/group-keeper-bot:${{ github.sha }} -t ghcr.io/pterko/group-keeper-bot:${{ github.ref_name }} .
+        run: docker build  -t ghcr.io/pterko/group-keeper-bot:${{ github.ref_name }} .
 
       # Log in to GitHub Container Registry
       - name: Log in to GitHub Container Registry
         run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
-
-      # Push Docker Image with commit SHA
-      - name: Push Docker image
-        run: docker push ghcr.io/pterko/group-keeper-bot:${{ github.sha }}
 
       # Push Docker Image with branch name
       - name: Push Docker image with branch name

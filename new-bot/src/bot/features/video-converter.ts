@@ -36,14 +36,14 @@ const composer = new Composer<Context>();
 // test url : https://storage.googleapis.com/downloads.webmproject.org/media/video/webmproject.org/big_buck_bunny_trailer_480p_logo.webm
 const handleWebm = async (ctx: Context, next: () => Promise<void>) => {
   if (!ctx.message) {
-    return next();
+    return await next();
   }
 
   const startDownload = Date.now();
 
   if (!ctx?.videoConverterState?.url) {
     if (!ctx.message?.document?.file_id) {
-      return next();
+      return await next();
     }
     const file = await ctx.api.getFile(ctx.message.document.file_id);
     const fileLink = await file.getUrl();
@@ -52,7 +52,7 @@ const handleWebm = async (ctx: Context, next: () => Promise<void>) => {
   }
 
   if (!ctx.videoConverterState.url) {
-    return next();
+    return await next();
   }
 
   const tempDir = os.tmpdir();
@@ -89,7 +89,7 @@ const handleWebm = async (ctx: Context, next: () => Promise<void>) => {
 
   if (!selectedVideoStream) {
     console.log("No selectedVideoStream");
-    return next();
+    return await next();
   }
 
   const maxWidth = 1280;
@@ -161,11 +161,11 @@ composer.on("message:entities:url", logHandle("webm-url"),
 
         if (url.endsWith(".webm")) {
           ctx.videoConverterState = { url };
-          return next();
+          return await next();
         }
       }
     }
-    return next();
+    return await next();
   },
   handleWebm
 );
@@ -174,11 +174,11 @@ composer.on(
   "message:document",
   async (ctx, next) => {
     if (!ctx.message) {
-      return next();
+      return await next();
     }
     
     if (ctx.message.document && ctx.message.document.mime_type === "video/webm") {
-      return next();
+      return await next();
     }
   },
   handleWebm

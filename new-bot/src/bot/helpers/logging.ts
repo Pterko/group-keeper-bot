@@ -10,12 +10,12 @@ export function getUpdateInfo(ctx: Context): Omit<Update, "update_id"> {
 }
 
 export function logHandle(id: string): Middleware<Context> {
-  return (ctx, next) => {
+  return async (ctx, next) => {
     ctx.logger.info({
       msg: `feature: ${id}`,
       ...(id.startsWith("unhandled") ? { update: getUpdateInfo(ctx) } : {}),
     });
 
-    return next();
+    return await next();
   };
 }

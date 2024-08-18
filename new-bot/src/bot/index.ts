@@ -99,6 +99,14 @@ export function createBot(token: string, options: Options = {}) {
     logger.error(`Error in bot: ${err.error} , while parsing update ${JSON.stringify(err.ctx)}`);
   }) 
 
+  bot.api.setMyCommands([
+    { command: "start", description: "Написать сообщение-приветствие" },
+    { command: "cat", description: "Выпукнуть картинку кота" },
+    { command: "roll", description: "Сгенерировать случайное число" },
+    { command: "toxic", description: "Показать таблицу главных токсов" },
+    { command: "clear_chat_context", description: "Очистить контекст чата (для нейронки)" },
+  ]);
+
   // must be the last handler
   // protectedBot.use(unhandledFeature);
 
