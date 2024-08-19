@@ -71,13 +71,13 @@ feature.on("message:entities:url", logHandle("message-entities-url"), async (ctx
       // And downlaod video only if it smaller than 90 seconds
       const videoId = extractYoutubeVideoId(url.text);
       if (!videoId) {
-        ctx.logger.error('Failed to extract video ID from URL:', { text: url.text });
+        ctx.logger.error({ msg: 'Failed to extract video ID from URL', text: url.text });
         continue;
       }
 
       const videoMetadata = await fetchYoutubeVideoMetadata(videoId);
       if (videoMetadata.secondsDuration > 90) {
-        ctx.logger.error('Video duration is too long:', { duration: videoMetadata.secondsDuration });
+        ctx.logger.info({ msg: 'Video duration is too long', duration: videoMetadata.secondsDuration });
         continue;
       }
 
@@ -100,7 +100,7 @@ feature.on("message:entities:url", logHandle("message-entities-url"), async (ctx
       // Imagine that this url is a valid VK video
       const infoResult = await getVkVideoInfo(url.text);
       if (infoResult.duration > 240) {
-        ctx.logger.info('Video duration is too long:', { duration: infoResult.duration });
+        ctx.logger.info({ msg: 'Video duration is too long', duration: infoResult.duration });
         continue;
       }
 
@@ -114,7 +114,7 @@ feature.on("message:entities:url", logHandle("message-entities-url"), async (ctx
       try {
         await ctx.replyWithVideo(videoFileUrl, {});
       } catch (error) {
-        ctx.logger.error('Error sending video:', error);
+        ctx.logger.error({ msg: 'Error sending video', error });
         await ctx.replyWithVideo(new InputFile(new URL(videoFileUrl)));
       }
     }

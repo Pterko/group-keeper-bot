@@ -1,12 +1,12 @@
-# Use an official Node.js runtime as a parent image, based on Debian
-FROM node:18-bullseye
+# Use an official Node.js Alpine-based image
+FROM node:18-alpine
 
-# Install curl, FFmpeg, and other dependencies
-RUN apt-get update && apt-get install -y curl ffmpeg && rm -rf /var/lib/apt/lists/*
+# Install dependencies
+RUN apk add --no-cache curl ffmpeg
 
 # Download yt-dlp binary and make it executable
 RUN curl -L https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp_linux -o /usr/local/bin/yt-dlp && \
-    chmod a+rx /usr/local/bin/yt-dlp
+@@ -10,26 +10,23 @@ RUN curl -L https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp_lin
 
 ENV YTDLP_PATH=/usr/local/bin/yt-dlp
 
