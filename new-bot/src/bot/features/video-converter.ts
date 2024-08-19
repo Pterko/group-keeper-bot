@@ -7,8 +7,11 @@ import download from "download";
 import prettyFrameRate from "#root/libs/prettyFrameRate.js";
 import ffprobe from "ffprobe";
 import ffmpeg from "fluent-ffmpeg";
-import { ffprobePath, ffmpegPath } from 'ffmpeg-ffprobe-static';
+//import { ffprobePath, ffmpegPath } from 'ffmpeg-ffprobe-static';
 import os from 'os';
+
+const ffmpegPath = "/usr/bin/ffmpeg";
+const ffprobePath = "/usr/bin/ffprobe";
 
 console.log("pathToFfmpeg:", ffmpegPath);
 
