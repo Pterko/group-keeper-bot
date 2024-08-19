@@ -47,17 +47,17 @@ export async function downloadVideo(url: string): Promise<string> {
           '-o',
           filePath,
       ])
-      // .on('progress', (progress) =>
-      //     console.log(
-      //         progress.percent,
-      //         progress.totalSize,
-      //         progress.currentSpeed,
-      //         progress.eta
-      //     )
-      // )
-      // .on('ytDlpEvent', (eventType, eventData) =>
-      //     console.log(eventType, eventData)
-      // )
+      .on('progress', (progress) =>
+          console.log(
+              progress.percent,
+              progress.totalSize,
+              progress.currentSpeed,
+              progress.eta
+          )
+      )
+      .on('ytDlpEvent', (eventType, eventData) =>
+          console.log(eventType, eventData)
+      )
       .on('error', (error) => reject(error))
       .on('close', () => resolve(filePath));
   })
