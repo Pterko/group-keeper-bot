@@ -30,6 +30,8 @@ const createConfigFromEnvironment = (environment: NodeJS.ProcessEnv) => {
     OLLAMA_URL: z.string().default("http://localhost:11434"),
     FURRY_PATH: z.string().default("/app/furry/"),
     YTDLP_PATH: z.string().default("/usr/local/bin/yt-dlp"),
+    FFMPEG_PATH: z.string().default("/usr/bin/ffmpeg"),
+    FFPROBE_PATH: z.string().default("/usr/bin/ffprobe"),
   });
 
   if (config.BOT_MODE === "webhook") {
