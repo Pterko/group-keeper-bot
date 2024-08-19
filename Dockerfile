@@ -2,11 +2,11 @@
 FROM node:18-alpine
 
 # Install dependencies
-RUN apk add --no-cache curl ffmpeg
+RUN apk add --no-cache curl ffmpeg wget
 
 # Download yt-dlp binary and make it executable
-RUN curl -L https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp_linux -o /usr/local/bin/yt-dlp && \
-@@ -10,26 +10,23 @@ RUN curl -L https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp_lin
+RUN wget https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp -O /usr/local/bin/yt-dlp && \
+    chmod a+rx /usr/local/bin/yt-dlp
 
 ENV YTDLP_PATH=/usr/local/bin/yt-dlp
 
