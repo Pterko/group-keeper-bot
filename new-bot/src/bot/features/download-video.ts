@@ -8,6 +8,8 @@ import { logHandle } from "#root/bot/helpers/logging.js";
 import { extractYoutubeVideoId, fetchYoutubeVideoMetadata, fetchYoutubeVideoUrl } from "../helpers/youtube.js";
 import axios from 'axios';
 import { addReplyParam } from "@roziscoding/grammy-autoquote";
+import { getVkVideoInfo, downloadVideo } from "../helpers/yt-dlp.js";
+
 
 
 const COBALT_API_URL = 'https://api.cobalt.tools/api/json';
@@ -53,6 +55,8 @@ feature.on("message:entities:url", logHandle("message-entities-url"), async (ctx
     ctx.logger.debug(`Hostname: "${hostname}"`);
 
     let videoFileUrl;
+    let videoFilePath;
+
     if (hostname === 'instagram.com') {
       ctx.replyWithChatAction('upload_video');
       // Imagine that this url is a valid Instagram video
@@ -91,12 +95,21 @@ feature.on("message:entities:url", logHandle("message-entities-url"), async (ctx
       videoFileUrl = result.url;
     }
 
+    if (hostname == 'vk.com') {
+      ctx.replyWithChatAction('upload_video');
+      // Imagine that this url is a valid VK video
+      const infoResult = await getVkVideoInfo(url.text);
+      if (infoResult.duration > 240) {
+        ctx.logger.info('Video duration is too long:', { duration: infoResult.duration });
+        continue;
+      }
+
+      const downloadedVideoPath = await downloadVideo(url.text);
+      videoFilePath = downloadedVideoPath;
+    }
 
 
-
- 
-
-    // After processing urls, we should look if we found some video file
+    // After processing urls and videos, we should look if we found some video file
     if (videoFileUrl){
       try {
         await ctx.replyWithVideo(videoFileUrl, {});
@@ -104,6 +117,9 @@ feature.on("message:entities:url", logHandle("message-entities-url"), async (ctx
         ctx.logger.error('Error sending video:', error);
         await ctx.replyWithVideo(new InputFile(new URL(videoFileUrl)));
       }
+    }
+    if (videoFilePath) {
+      await ctx.replyWithVideo(new InputFile(videoFilePath));
     }
     return await next();
   }

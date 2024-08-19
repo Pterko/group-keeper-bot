@@ -1,6 +1,15 @@
 # Use an official Node.js runtime as a parent image, based on Debian
 FROM node:18-bullseye
 
+# Install curl for downloading yt-dlp
+RUN apt-get update && apt-get install -y curl && rm -rf /var/lib/apt/lists/*
+
+# Download yt-dlp binary and make it executable
+RUN curl -L https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp_linux -o /usr/local/bin/yt-dlp && \
+    chmod a+rx /usr/local/bin/yt-dlp
+
+ENV YTDLP_PATH=/usr/local/bin/yt-dlp
+
 # Set the working directory in the container to the parent of new-bot
 WORKDIR /usr/src/app
 
