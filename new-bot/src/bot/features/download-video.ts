@@ -1,5 +1,6 @@
 import { chatAction } from "@grammyjs/auto-chat-action";
 import { URL } from 'url';
+import fs from 'fs/promises';
 import { Composer, InputFile } from "grammy";
 import type { Context } from "#root/bot/context.js";
 import { isAdmin } from "#root/bot/filters/index.js";
@@ -66,7 +67,7 @@ feature.on("message:entities:url", logHandle("message-entities-url"), async (ctx
     }
 
     if (hostname === 'youtube.com' || hostname === 'youtu.be') {
-      ctx.replyWithChatAction('upload_video');
+      
       // For youtube, we should firstly check duration of a video
       // And downlaod video only if it smaller than 90 seconds
       const videoId = extractYoutubeVideoId(url.text);
@@ -80,9 +81,21 @@ feature.on("message:entities:url", logHandle("message-entities-url"), async (ctx
         ctx.logger.info({ msg: 'Video duration is too long', duration: videoMetadata.secondsDuration });
         continue;
       }
+      ctx.replyWithChatAction('upload_video');
 
-      const result = await fetchYoutubeVideoUrl(url.text);
-      videoFileUrl = result.url;
+      const cobaltToolsResult = await fetchYoutubeVideoUrl(url.text);
+      videoFileUrl = cobaltToolsResult.url;
+
+      if (!videoFileUrl) {
+        // We need to use a fallback local yt-dlp download
+        const downloadedVideoPath = await downloadVideo(url.text);
+        videoFilePath = downloadedVideoPath;
+      }
+
+      if (!videoFilePath && !videoFileUrl) {
+        ctx.logger.error({ msg: `Failed to download YT video`, url: url.text });
+        continue;
+      }
     }
 
     // Twitter parsing
@@ -120,6 +133,7 @@ feature.on("message:entities:url", logHandle("message-entities-url"), async (ctx
     }
     if (videoFilePath) {
       await ctx.replyWithVideo(new InputFile(videoFilePath));
+      await fs.unlink(videoFilePath);
     }
     return await next();
   }
