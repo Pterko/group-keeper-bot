@@ -1,7 +1,6 @@
 import { Composer } from "grammy";
 import { Context } from "#root/bot/context.js";
 import { toxicModel } from "#root/models/toxic.js";
-import { logHandle } from "#root/bot/helpers/logging.js";
 
 const composer = new Composer<Context>();
 
