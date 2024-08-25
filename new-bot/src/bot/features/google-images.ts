@@ -1,8 +1,5 @@
 import { Composer } from "grammy";
 import { Context } from "#root/bot/context.js";
-import axios from "axios";
-import fs from "fs";
-import path from "path";
 import googlethis from "googlethis";
 import { InlineKeyboard } from "grammy";
 
