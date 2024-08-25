@@ -1,6 +1,7 @@
 import { ErrorHandler } from "grammy";
 import type { Context } from "#root/bot/context.js";
 import { getUpdateInfo } from "#root/bot/helpers/logging.js";
+import newrelic from "newrelic";
 
 export const errorHandler: ErrorHandler<Context> = (error) => {
   const { ctx } = error;
@@ -9,4 +10,6 @@ export const errorHandler: ErrorHandler<Context> = (error) => {
     err: error.error,
     update: getUpdateInfo(ctx),
   });
+
+  newrelic.incrementMetric('updates/errors', 1);
 };
