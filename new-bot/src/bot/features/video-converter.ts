@@ -1,17 +1,18 @@
 import { Composer, InputFile } from "grammy";
 import { Context } from "#root/bot/context.js";
 import { logHandle } from "#root/bot/helpers/logging.js";
-import fs from "fs";
-import path from "path";
+import fs from "node:fs";
+import path from "node:path";
 import download from "download";
 import prettyFrameRate from "#root/libs/prettyFrameRate.js";
 import ffprobe from "ffprobe";
 import ffmpeg from "fluent-ffmpeg";
-import os from 'os';
+import os from 'node:os';
 import { config } from "#root/config.js";
+import chooseValidPath from "#root/bot/utils/choose-valid-path.js";
 
-const ffmpegPath = "/usr/bin/ffmpeg" || config.FFMPEG_PATH;
-const ffprobePath = "/usr/bin/ffprobe" || config.FFPROBE_PATH;
+const ffmpegPath = chooseValidPath(["/usr/bin/ffmpeg", config.FFMPEG_PATH]);
+const ffprobePath = chooseValidPath(["/usr/bin/ffprobe", config.FFPROBE_PATH]);
 
 console.log("pathToFfmpeg:", ffmpegPath);
 

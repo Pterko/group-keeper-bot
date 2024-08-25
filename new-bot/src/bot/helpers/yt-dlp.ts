@@ -1,7 +1,7 @@
 import YTDlpWrap from 'yt-dlp-wrap';
-import os from 'os';
-import fs from 'fs';
-import path from 'path';
+import os from 'node:os';
+import fs from 'node:fs';
+import path from 'node:path';
 import { config } from '#root/config.js';
 
 const ytDlpPath = config.YTDLP_PATH;
@@ -33,11 +33,13 @@ export async function getVkVideoInfo(url: string): Promise<VideoInfo> {
   }
 }
 
-export async function downloadVideo(url: string): Promise<string> {
+export async function downloadVideo(url: string, timeout: number = 120_000): Promise<string> {
   return new Promise((resolve, reject) => {
     const ytDlp = new YTDlpWrap.default(ytDlpPath);
 
     const filePath = path.join(tmpDir, `${Date.now()}-${Math.round(Math.random()*1000)}.mp4`); 
+
+    let controller = new AbortController();
   
     let ytDlpEventEmitter = ytDlp
       .exec([
@@ -46,7 +48,10 @@ export async function downloadVideo(url: string): Promise<string> {
           'bestvideo[height<=1080][ext=mp4]+bestaudio[ext=m4a]/best[height<=1080][ext=mp4]/best[height<=1080]',
           '-o',
           filePath,
-      ])
+      ],
+      {shell: true, detached: true},
+      controller.signal
+      )
       .on('progress', (progress) =>
           console.log(
               progress.percent,
@@ -60,5 +65,10 @@ export async function downloadVideo(url: string): Promise<string> {
       )
       .on('error', (error) => reject(error))
       .on('close', () => resolve(filePath));
+
+      setTimeout(() => {
+        controller.abort();
+        reject(new Error('YT-DLP download timeout'));
+      }, timeout);
   })
 }

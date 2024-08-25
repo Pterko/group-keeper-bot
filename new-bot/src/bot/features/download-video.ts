@@ -1,10 +1,7 @@
-import { chatAction } from "@grammyjs/auto-chat-action";
-import { URL } from 'url';
-import fs from 'fs/promises';
+import { URL } from 'node:url';
+import fs from 'node:fs/promises';
 import { Composer, InputFile } from "grammy";
 import type { Context } from "#root/bot/context.js";
-import { isAdmin } from "#root/bot/filters/index.js";
-import { setCommandsHandler } from "#root/bot/handlers/index.js";
 import { logHandle } from "#root/bot/helpers/logging.js";
 import { extractYoutubeVideoId, fetchYoutubeVideoMetadata, fetchYoutubeVideoUrl } from "../helpers/youtube.js";
 import axios from 'axios';
@@ -100,22 +97,22 @@ feature.on("message:entities:url", logHandle("message-entities-url"), async (ctx
 
     // Twitter parsing
     if (hostname == 'twitter.com' || hostname == 'x.com') {
-      ctx.replyWithChatAction('upload_video');
       // Imagine that this url is a valid Twitter video
 
       const result = await fetchTwitterVideoUrl(url.text);
       ctx.logger.debug(`Twitter result: ${JSON.stringify(result)}`);
       videoFileUrl = result.url;
+      ctx.replyWithChatAction('upload_video');
     }
 
     if (hostname == 'vk.com') {
-      ctx.replyWithChatAction('upload_video');
       // Imagine that this url is a valid VK video
       const infoResult = await getVkVideoInfo(url.text);
       if (infoResult.duration > 240) {
         ctx.logger.info({ msg: 'Video duration is too long', duration: infoResult.duration });
         continue;
       }
+      ctx.replyWithChatAction('upload_video');
 
       const downloadedVideoPath = await downloadVideo(url.text);
       videoFilePath = downloadedVideoPath;
@@ -167,7 +164,9 @@ async function fetchTwitterVideoUrl(twitterUrl: string) {
       },
     });
 
-    if (['success', 'redirect'].includes(response.data.status) && response.data.url) {
+    console.log(`Twitter response: ${JSON.stringify(response.data)}`);
+
+    if (['success', 'redirect'].includes(response.data.status) && response.data.url && !response.data.url.includes('.jpg') && !response.data.url.includes('.png')) {
       return { success: true, url: response.data.url };
     } else {
       return { success: false, message: response.data };
