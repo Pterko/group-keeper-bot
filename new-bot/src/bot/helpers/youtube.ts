@@ -32,20 +32,10 @@ export async function fetchYoutubeVideoMetadata(videoId: string): Promise<{
 }
 
 export function extractYoutubeVideoId(url: string): string | null {
-  const shortUrlPattern = /(?:https?:\/\/)?(?:www\.)?youtube\.com\/shorts\/([a-zA-Z0-9_-]+)/;
-  const longUrlPattern = /(?:https?:\/\/)?(?:www\.)?youtube\.com\/watch\?v=([a-zA-Z0-9_-]+)/;
+  const youtubePattern = /(?:https?:\/\/)?(?:(?:www\.)?youtube\.com\/(?:shorts\/|watch\?v=)|youtu\.be\/)([a-zA-Z0-9_-]+)/;
 
-  const shortUrlMatch = url.match(shortUrlPattern);
-  if (shortUrlMatch && shortUrlMatch[1]) {
-    return shortUrlMatch[1];
-  }
-
-  const longUrlMatch = url.match(longUrlPattern);
-  if (longUrlMatch && longUrlMatch[1]) {
-    return longUrlMatch[1];
-  }
-
-  return null;
+  const match = url.match(youtubePattern);
+  return match ? match[1] : null;
 }
 
 export async function fetchYoutubeVideoUrl(youtubeUrl: string) {
