@@ -65,9 +65,7 @@ const queue = async.queue(async (task: LLamaTask, callback) => {
     }
     const response = await axios.post(config.OLLAMA_URL, task.data, axiosConfig);
     const ans = response.data.response;
-
-    newrelic.incrementMetric('features/llama/responses', 1);
-
+    
     console.log('api response:', response.data);
 
 
@@ -76,6 +74,8 @@ const queue = async.queue(async (task: LLamaTask, callback) => {
     });
 
     console.log(botAnswer);
+
+    newrelic.incrementMetric('features/llama/responses', 1);
 
     try {
       await chatMessageModel.create({
@@ -92,7 +92,7 @@ const queue = async.queue(async (task: LLamaTask, callback) => {
           }
         });
     } catch (error) {
-      newrelic.incrementMetric('features/llama/db_errors', 1);
+      newrelic.incrementMetric('features/llama/errors', 1);
       task.ctx.logger.error({
         msg: 'Error while saving message to db',
         error: error
