@@ -18,6 +18,11 @@ export function updateLogger(): Middleware<Context> {
 
     newrelic.incrementMetric('updates/received', 1);
 
+    newrelic.recordCustomEvent('TelegramUpdate', {
+      userId: ctx.from?.id || 0,
+      chatId: ctx.chat?.id || 0,
+    });
+
     // ctx.logger.debug({
     //   msg: "update received",
     //   update: getUpdateInfo(ctx),
