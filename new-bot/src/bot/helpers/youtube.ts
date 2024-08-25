@@ -34,6 +34,7 @@ export async function fetchYoutubeVideoMetadata(videoId: string): Promise<{
 export function extractYoutubeVideoId(url: string): string | null {
   const shortUrlPattern = /(?:https?:\/\/)?(?:www\.)?youtube\.com\/shorts\/([a-zA-Z0-9_-]+)/;
   const longUrlPattern = /(?:https?:\/\/)?(?:www\.)?youtube\.com\/watch\?v=([a-zA-Z0-9_-]+)/;
+  const youtuBePattern = /(?:https?:\/\/)?youtu\.be\/([a-zA-Z0-9_-]+)/; // Added pattern for youtu.be links
 
   const shortUrlMatch = url.match(shortUrlPattern);
   if (shortUrlMatch && shortUrlMatch[1]) {
@@ -43,6 +44,11 @@ export function extractYoutubeVideoId(url: string): string | null {
   const longUrlMatch = url.match(longUrlPattern);
   if (longUrlMatch && longUrlMatch[1]) {
     return longUrlMatch[1];
+  }
+
+  const youtuBeMatch = url.match(youtuBePattern);
+  if (youtuBeMatch && youtuBeMatch[1]) {
+    return youtuBeMatch[1];
   }
 
   return null;
