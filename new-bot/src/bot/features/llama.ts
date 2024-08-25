@@ -1,4 +1,5 @@
 import { Composer } from "grammy";
+import newrelic from "newrelic";
 import { Context } from "#root/bot/context.js";
 import axios from "axios";
 import async from "async";
@@ -64,7 +65,7 @@ const queue = async.queue(async (task: LLamaTask, callback) => {
     }
     const response = await axios.post(config.OLLAMA_URL, task.data, axiosConfig);
     const ans = response.data.response;
-
+    
     console.log('api response:', response.data);
 
 
@@ -73,6 +74,8 @@ const queue = async.queue(async (task: LLamaTask, callback) => {
     });
 
     console.log(botAnswer);
+
+    newrelic.incrementMetric('features/llama/responses', 1);
 
     try {
       await chatMessageModel.create({
@@ -89,6 +92,7 @@ const queue = async.queue(async (task: LLamaTask, callback) => {
           }
         });
     } catch (error) {
+      newrelic.incrementMetric('features/llama/errors', 1);
       task.ctx.logger.error({
         msg: 'Error while saving message to db',
         error: error
@@ -188,6 +192,7 @@ const messageHandler = async (ctx: Context, next: () => Promise<void>) => {
   };
 
   await ctx.replyWithChatAction("typing");
+  newrelic.incrementMetric('features/llama/requests', 1);
   queue.push({ ctx, data, randSay });
 
   await next();

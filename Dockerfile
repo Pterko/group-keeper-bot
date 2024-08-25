@@ -32,4 +32,4 @@ EXPOSE 3000
 WORKDIR /usr/src/app/new-bot
 
 # Define the command to run your app using CMD which defines your runtime
-CMD ["node", "build/src/main.js"]
+CMD ["node", "-r", "dotenv/config", "-r", "newrelic", "build/src/main.js"]
