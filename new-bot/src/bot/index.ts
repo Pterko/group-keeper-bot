@@ -32,6 +32,7 @@ import { llamaFeature } from "./features/llama.js";
 import { furryFeature } from "./features/furry.js";
 import { ChatMember } from "@grammyjs/types";
 import { logChatMessage } from "./middlewares/log-chat-message.js";
+import { rollFeature } from "./features/roll.js";
 
 type Options = {
   sessionStorage?: StorageAdapter<SessionData>;
@@ -86,6 +87,7 @@ export function createBot(token: string, options: Options = {}) {
   protectedBot.use(googleImagesFeature);
   protectedBot.use(catsBulgeFeature);
   protectedBot.use(welcomeFeature);
+  protectedBot.use(rollFeature);
   protectedBot.use(adminFeature);
 
   protectedBot.use(shortAnswersFeature);
