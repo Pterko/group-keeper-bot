@@ -8,6 +8,11 @@ import { chatMessageModel } from "#root/models/chatMessage.js";
 
 const botName = "Гуфовский";
 
+const randSayChatsIds = [ 
+  -1001347524115, // kchk
+  -1002265851760 // added via support
+]
+
 const composer = new Composer<Context>();
 
 const axiosConfig = {
@@ -134,11 +139,11 @@ const messageHandler = async (ctx: Context, next: () => Promise<void>) => {
 
   const normalizedText = ctx.message.text.replace(/^(гуфи|гуф)([\s,.!?]|$)/i, 'гуфовский$2');
 
-  if (ctx.message.chat.id == -1001347524115) {
+  if (randSayChatsIds.includes(ctx.message.chat.id)) {
     randSay = Math.floor(Math.random() * 100) === 0;
   }
 
-  if (ctx.message.chat.id == -1001347524115 && /^гуфовский скажи/i.test(ctx.message.text)) {
+  if (randSayChatsIds.includes(ctx.message.chat.id) && /^гуфовский скажи/i.test(ctx.message.text)) {
     randSay = true;
   }
 
