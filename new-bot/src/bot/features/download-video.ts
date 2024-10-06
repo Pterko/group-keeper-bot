@@ -1,7 +1,7 @@
 import { URL } from 'node:url';
 import newrelic from "newrelic";
 import fs from 'node:fs/promises';
-import { Composer, InputFile } from "grammy";
+import { Composer, InputFile, InlineKeyboard, InlineQueryResultBuilder } from "grammy";
 import type { Context } from "#root/bot/context.js";
 import { logHandle } from "#root/bot/helpers/logging.js";
 import { extractYoutubeVideoId, fetchYoutubeVideoMetadata, fetchYoutubeVideoUrl } from "../helpers/youtube.js";
@@ -228,5 +228,30 @@ async function fetchInstagramVideoUrl(instagramUrl: string ) {
     return await fetchFallbackInstagramVideoUrl(instagramUrl);
   }
 }
+
+
+composer.inlineQuery(/instagram.com/, async (ctx) => {
+  const match = ctx.match; // regex match object
+  const query = ctx.inlineQuery.query; // query string
+  ctx.logger.debug(`Inline query: ${query}`);
+  ctx.logger.debug(`Match: ${match}`);
+  let parsedUrl;
+  try {
+    parsedUrl = new URL(query);
+    const hostname = parsedUrl.hostname.replace(/^www\./, ""); // Remove 'www.' prefix if present
+    ctx.logger.debug(`Hostname: "${hostname}"`);
+    let videoUrl;
+    if (hostname === "instagram.com") {
+      const result = await fetchInstagramVideoUrl(query);
+      ctx.logger.debug(`Instagram result: ${JSON.stringify(result)}`);
+      videoUrl = result.url;
+    }
+
+    ctx.answerInlineQuery([InlineQueryResultBuilder.videoMp4("id-1", "Send Instagram Video", videoUrl, "https://img.icons8.com/?size=512&id=eAMGjpJ4skFB&format=png")]);
+  } catch (error) {
+    ctx.logger.error("Error parsing URL:", error);
+  }
+});
+
 
 export { composer as downloadVideoFeature };
