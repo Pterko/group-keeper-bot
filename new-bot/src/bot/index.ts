@@ -68,12 +68,12 @@ export function createBot(token: string, options: Options = {}) {
   protectedBot.use(autoChatAction(bot.api));
   protectedBot.use(hydrateReply);
   protectedBot.use(hydrate());
-  protectedBot.use(
-    session({
-      initial: () => ({}),
-      storage: sessionStorage,
-    }),
-  );
+  // protectedBot.use(
+  //   session({
+  //     initial: () => ({}),
+  //     storage: sessionStorage,
+  //   }),
+  // );
   protectedBot.use(i18n);
 
   protectedBot.use(logChatMessage);

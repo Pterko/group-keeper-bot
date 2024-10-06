@@ -1,7 +1,7 @@
 import { Composer, InputFile } from "grammy";
 import { Context } from "#root/bot/context.js";
 import axios from "axios";
-import fs from "fs";
+import fs from "node:fs";
 import { Canvas, Image, ImageData, loadImage } from "canvas";
 import { JSDOM } from "jsdom";
 import Jimp from "jimp";
