@@ -32,6 +32,7 @@ const createConfigFromEnvironment = (environment: NodeJS.ProcessEnv) => {
     YTDLP_PATH: z.string().default("/usr/local/bin/yt-dlp"),
     FFMPEG_PATH: z.string().default("/usr/bin/ffmpeg"),
     FFPROBE_PATH: z.string().default("/usr/bin/ffprobe"),
+    MEDIA_STORAGE_GROUP_ID: z.string(),
   });
 
   if (config.BOT_MODE === "webhook") {

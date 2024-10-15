@@ -8,6 +8,8 @@ import { extractYoutubeVideoId, fetchYoutubeVideoMetadata, fetchYoutubeVideoUrl 
 import axios from 'axios';
 import { addReplyParam } from "@roziscoding/grammy-autoquote";
 import { getVkVideoInfo, downloadVideo } from "../helpers/yt-dlp.js";
+import downloadFile from '../helpers/download-file.js';
+import { config } from '#root/config.js';
 
 
 
@@ -29,6 +31,118 @@ const feature = composer;
 // https://x.com/Catshealdeprsn/status/1824921646181847112
 // https://twitter.com/Catshealdeprsn/status/1824921646181847112
 
+
+async function processVideoUrl(url: string, ctx: Context): 
+Promise<{success: boolean, videoFileUrl?: string, videoFilePath?: string}> {
+  let parsedUrl;
+  try {
+    ctx.logger.debug(`Processing URL: ${url}`);
+    parsedUrl = new URL(url);
+  } catch (error) {
+    ctx.logger.error(`Error parsing URL: ${error}`);
+    console.log(error);
+    return { success: false };
+  }
+  const hostname = parsedUrl.hostname.replace(/^www\./, ""); // Remove 'www.' prefix if present
+
+  ctx.logger.debug(`Hostname: "${hostname}"`);
+
+  let videoFileUrl;
+  let videoFilePath;
+
+  if (hostname === "instagram.com") {
+    if (ctx.chat?.id) {
+      ctx.replyWithChatAction("upload_video");
+    }
+    // Imagine that this url is a valid Instagram video
+
+    const result = await fetchInstagramVideoUrl(url);
+    videoFileUrl = result.url;
+  }
+
+  if (hostname === "youtube.com" || hostname === "youtu.be") {
+    // For youtube, we should firstly check duration of a video
+    // And downlaod video only if it smaller than 90 seconds
+    const videoId = extractYoutubeVideoId(url);
+    if (!videoId) {
+      ctx.logger.error({
+        msg: "Failed to extract video ID from URL",
+        text: url,
+      });
+      return { success: false };
+    }
+
+    const videoMetadata = await fetchYoutubeVideoMetadata(videoId);
+    if (videoMetadata.secondsDuration > 90) {
+      ctx.logger.info({
+        msg: "Video duration is too long",
+        duration: videoMetadata.secondsDuration,
+      });
+      return { success: false };
+    }
+    if (ctx.chat?.id) {
+      ctx.replyWithChatAction("upload_video");
+    }
+
+    const cobaltToolsResult = await fetchYoutubeVideoUrl(url);
+    videoFileUrl = cobaltToolsResult.url;
+
+    if (!videoFileUrl) {
+      // We need to use a fallback local yt-dlp download
+      const downloadedVideoPath = await downloadVideo(url);
+      videoFilePath = downloadedVideoPath;
+    }
+
+    if (!videoFilePath && !videoFileUrl) {
+      ctx.logger.error({
+        msg: `Failed to download YT video`,
+        url: url,
+      });
+      return { success: false };
+    }
+  }
+
+  // Twitter parsing
+  if (hostname == "twitter.com" || hostname == "x.com") {
+    // Imagine that this url is a valid Twitter video
+
+    const result = await fetchTwitterVideoUrl(url);
+    ctx.logger.debug(`Twitter result: ${JSON.stringify(result)}`);
+    videoFileUrl = result.url;
+    if (ctx.chat?.id) {
+      ctx.replyWithChatAction("upload_video");
+    }
+  }
+
+  if (hostname == "vk.com") {
+    // Imagine that this url is a valid VK video
+    const infoResult = await getVkVideoInfo(url);
+    if (infoResult.duration > 240) {
+      ctx.logger.info({
+        msg: "Video duration is too long",
+        duration: infoResult.duration,
+      });
+      return { success: false };
+    }
+    if (ctx.chat?.id) {
+      ctx.replyWithChatAction("upload_video");
+    }
+
+    const downloadedVideoPath = await downloadVideo(url);
+    videoFilePath = downloadedVideoPath;
+  }
+
+  if (!videoFileUrl && !videoFilePath) {
+    ctx.logger.error({
+      msg: `Failed to download video`,
+      url: url,
+    });
+    return { success: false };
+  }
+
+  return { success: true, videoFileUrl, videoFilePath };
+}
+
 feature.on(
   "message:entities:url",
   logHandle("message-entities-url"),
@@ -47,94 +161,11 @@ feature.on(
 
     for (const url of urls) {
       try {
-        let parsedUrl;
-        try {
-          parsedUrl = new URL(url.text);
-        } catch (error) {
-          ctx.logger.error("Error parsing URL:", error);
+        const { success, videoFileUrl, videoFilePath } = await processVideoUrl(url.text, ctx);
+
+        if (!success) {
           continue;
         }
-        const hostname = parsedUrl.hostname.replace(/^www\./, ""); // Remove 'www.' prefix if present
-
-        ctx.logger.debug(`Hostname: "${hostname}"`);
-
-        let videoFileUrl;
-        let videoFilePath;
-
-        if (hostname === "instagram.com") {
-          ctx.replyWithChatAction("upload_video");
-          // Imagine that this url is a valid Instagram video
-
-          const result = await fetchInstagramVideoUrl(url.text);
-          videoFileUrl = result.url;
-        }
-
-        if (hostname === "youtube.com" || hostname === "youtu.be") {
-          // For youtube, we should firstly check duration of a video
-          // And downlaod video only if it smaller than 90 seconds
-          const videoId = extractYoutubeVideoId(url.text);
-          if (!videoId) {
-            ctx.logger.error({
-              msg: "Failed to extract video ID from URL",
-              text: url.text,
-            });
-            continue;
-          }
-
-          const videoMetadata = await fetchYoutubeVideoMetadata(videoId);
-          if (videoMetadata.secondsDuration > 90) {
-            ctx.logger.info({
-              msg: "Video duration is too long",
-              duration: videoMetadata.secondsDuration,
-            });
-            continue;
-          }
-          ctx.replyWithChatAction("upload_video");
-
-          const cobaltToolsResult = await fetchYoutubeVideoUrl(url.text);
-          videoFileUrl = cobaltToolsResult.url;
-
-          if (!videoFileUrl) {
-            // We need to use a fallback local yt-dlp download
-            const downloadedVideoPath = await downloadVideo(url.text);
-            videoFilePath = downloadedVideoPath;
-          }
-
-          if (!videoFilePath && !videoFileUrl) {
-            ctx.logger.error({
-              msg: `Failed to download YT video`,
-              url: url.text,
-            });
-            continue;
-          }
-        }
-
-        // Twitter parsing
-        if (hostname == "twitter.com" || hostname == "x.com") {
-          // Imagine that this url is a valid Twitter video
-
-          const result = await fetchTwitterVideoUrl(url.text);
-          ctx.logger.debug(`Twitter result: ${JSON.stringify(result)}`);
-          videoFileUrl = result.url;
-          ctx.replyWithChatAction("upload_video");
-        }
-
-        if (hostname == "vk.com") {
-          // Imagine that this url is a valid VK video
-          const infoResult = await getVkVideoInfo(url.text);
-          if (infoResult.duration > 240) {
-            ctx.logger.info({
-              msg: "Video duration is too long",
-              duration: infoResult.duration,
-            });
-            continue;
-          }
-          ctx.replyWithChatAction("upload_video");
-
-          const downloadedVideoPath = await downloadVideo(url.text);
-          videoFilePath = downloadedVideoPath;
-        }
-
         // After processing urls and videos, we should look if we found some video file
         if (videoFileUrl) {
           newrelic.incrementMetric("features/download-video/requests", 1);
@@ -230,28 +261,40 @@ async function fetchInstagramVideoUrl(instagramUrl: string ) {
 }
 
 
-composer.inlineQuery(/instagram.com/, async (ctx) => {
+composer.inlineQuery(/(https?:\/\/(?:www\.|(?!www))[a-zA-Z0-9][a-zA-Z0-9-]+[a-zA-Z0-9]\.[^\s]{2,}|www\.[a-zA-Z0-9][a-zA-Z0-9-]+[a-zA-Z0-9]\.[^\s]{2,}|https?:\/\/(?:www\.|(?!www))[a-zA-Z0-9]+\.[^\s]{2,}|www\.[a-zA-Z0-9]+\.[^\s]{2,})/, async (ctx, next) => {
   const match = ctx.match; // regex match object
   const query = ctx.inlineQuery.query; // query string
   ctx.logger.debug(`Inline query: ${query}`);
   ctx.logger.debug(`Match: ${match}`);
-  let parsedUrl;
-  try {
-    parsedUrl = new URL(query);
-    const hostname = parsedUrl.hostname.replace(/^www\./, ""); // Remove 'www.' prefix if present
-    ctx.logger.debug(`Hostname: "${hostname}"`);
-    let videoUrl;
-    if (hostname === "instagram.com") {
-      const result = await fetchInstagramVideoUrl(query);
-      ctx.logger.debug(`Instagram result: ${JSON.stringify(result)}`);
-      videoUrl = result.url;
-    }
-
-    ctx.answerInlineQuery([InlineQueryResultBuilder.videoMp4("id-1", "Send Instagram Video", videoUrl, "https://img.icons8.com/?size=512&id=eAMGjpJ4skFB&format=png")]);
-  } catch (error) {
-    ctx.logger.error("Error parsing URL:", error);
+  if (!match) {
+    return;
   }
-});
+  try {
+    const sourceUrl = match[0];
+    const { success, videoFileUrl, videoFilePath } = await processVideoUrl(sourceUrl, ctx);
+
+    if (!success) {
+      return;
+    }
+    ctx.logger.debug(`Video file URL: ${videoFileUrl}`);
+    ctx.logger.debug(`Video file path: ${videoFilePath}`);
+
+    if (videoFilePath){
+      return ctx.answerInlineQuery([InlineQueryResultBuilder.videoMp4("id-1", "Send Video", videoFilePath, "https://img.icons8.com/?size=512&id=eAMGjpJ4skFB&format=png", {caption: `<a href="${sourceUrl}">Original</a>`, parse_mode: "HTML", })]);
+    }
+    if (videoFileUrl){
+      const localVideoFilePath = await downloadFile(videoFileUrl);
+      ctx.logger.debug(`Local video file path: ${localVideoFilePath}`);
+      const videoSendResult = await ctx.api.sendVideo(config.MEDIA_STORAGE_GROUP_ID, new InputFile(localVideoFilePath));
+      ctx.logger.debug(`Video send result: ${JSON.stringify(videoSendResult)}`);
+      return ctx.answerInlineQuery([InlineQueryResultBuilder.videoMp4("id-1", "Send Video", videoSendResult.video.file_id, "https://img.icons8.com/?size=512&id=eAMGjpJ4skFB&format=png", {caption: `<a href="${sourceUrl}">Original</a>`, parse_mode: "HTML", })]);
+    }
+  } catch (error) {
+    ctx.logger.error(`Error processing inline query: ${error}`);
+  } finally {
+    return next();
+  }
+})
 
 
 export { composer as downloadVideoFeature };
