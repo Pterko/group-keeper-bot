@@ -33,8 +33,9 @@ const feature = composer;
 
 
 async function processVideoUrl(url: string, ctx: Context): 
-Promise<{success: boolean, videoFileUrl?: string, videoFilePath?: string}> {
+Promise<{success: boolean, videoFileUrl?: string, videoFilePath?: string, service?: 'yt' | 'ig' | 'tw' | 'vk' | 'other'}> {
   let parsedUrl;
+  let service: 'yt' | 'ig' | 'tw' | 'vk' | 'other' = 'other';
   try {
     ctx.logger.debug(`Processing URL: ${url}`);
     parsedUrl = new URL(url);
@@ -58,6 +59,7 @@ Promise<{success: boolean, videoFileUrl?: string, videoFilePath?: string}> {
 
     const result = await fetchInstagramVideoUrl(url);
     videoFileUrl = result.url;
+    service = 'ig';
   }
 
   if (hostname === "youtube.com" || hostname === "youtu.be") {
@@ -100,6 +102,7 @@ Promise<{success: boolean, videoFileUrl?: string, videoFilePath?: string}> {
       });
       return { success: false };
     }
+    service = 'yt';
   }
 
   // Twitter parsing
@@ -112,6 +115,7 @@ Promise<{success: boolean, videoFileUrl?: string, videoFilePath?: string}> {
     if (ctx.chat?.id) {
       ctx.replyWithChatAction("upload_video");
     }
+    service = 'tw';
   }
 
   if (hostname == "vk.com") {
@@ -130,6 +134,7 @@ Promise<{success: boolean, videoFileUrl?: string, videoFilePath?: string}> {
 
     const downloadedVideoPath = await downloadVideo(url);
     videoFilePath = downloadedVideoPath;
+    service = 'vk';
   }
 
   if (!videoFileUrl && !videoFilePath) {
@@ -140,7 +145,7 @@ Promise<{success: boolean, videoFileUrl?: string, videoFilePath?: string}> {
     return { success: false };
   }
 
-  return { success: true, videoFileUrl, videoFilePath };
+  return { success: true, videoFileUrl, videoFilePath, service };
 }
 
 feature.on(
@@ -271,7 +276,7 @@ composer.inlineQuery(/(https?:\/\/(?:www\.|(?!www))[a-zA-Z0-9][a-zA-Z0-9-]+[a-zA
   }
   try {
     const sourceUrl = match[0];
-    const { success, videoFileUrl, videoFilePath } = await processVideoUrl(sourceUrl, ctx);
+    const { success, videoFileUrl, videoFilePath, service } = await processVideoUrl(sourceUrl, ctx);
 
     if (!success) {
       return;
@@ -279,16 +284,23 @@ composer.inlineQuery(/(https?:\/\/(?:www\.|(?!www))[a-zA-Z0-9][a-zA-Z0-9-]+[a-zA
     ctx.logger.debug(`Video file URL: ${videoFileUrl}`);
     ctx.logger.debug(`Video file path: ${videoFilePath}`);
 
-    if (videoFilePath){
-      return ctx.answerInlineQuery([InlineQueryResultBuilder.videoMp4("id-1", "Send Video", videoFilePath, "https://img.icons8.com/?size=512&id=eAMGjpJ4skFB&format=png", {caption: `<a href="${sourceUrl}">Original</a>`, parse_mode: "HTML", })]);
+    if (videoFileUrl && service != 'yt'){
+      return ctx.answerInlineQuery([InlineQueryResultBuilder.videoMp4("id-1", "Send Video", videoFileUrl, "https://img.icons8.com/?size=512&id=eAMGjpJ4skFB&format=png", {caption: `<a href="${sourceUrl}">Original</a>`, parse_mode: "HTML", })]);
     }
-    if (videoFileUrl){
-      const localVideoFilePath = await downloadFile(videoFileUrl);
-      ctx.logger.debug(`Local video file path: ${localVideoFilePath}`);
-      const videoSendResult = await ctx.api.sendVideo(config.MEDIA_STORAGE_GROUP_ID, new InputFile(localVideoFilePath));
+
+    if (videoFilePath || (service === 'yt' && videoFileUrl)){
+      if (service === 'yt' && videoFileUrl){
+        const videoFilePath = await downloadFile(videoFileUrl);
+        ctx.logger.debug(`Local video file path: ${videoFilePath}`);
+      }
+      if (!videoFilePath){
+        return;
+      }
+      const videoSendResult = await ctx.api.sendVideo(config.MEDIA_STORAGE_GROUP_ID, new InputFile(videoFilePath));
       ctx.logger.debug(`Video send result: ${JSON.stringify(videoSendResult)}`);
       return ctx.answerInlineQuery([InlineQueryResultBuilder.videoMp4("id-1", "Send Video", videoSendResult.video.file_id, "https://img.icons8.com/?size=512&id=eAMGjpJ4skFB&format=png", {caption: `<a href="${sourceUrl}">Original</a>`, parse_mode: "HTML", })]);
     }
+
   } catch (error) {
     ctx.logger.error(`Error processing inline query: ${error}`);
   } finally {
