@@ -39,7 +39,7 @@ export function extractYoutubeVideoId(url: string): string | null {
 }
 
 export async function fetchYoutubeVideoUrl(youtubeUrl: string) {
-  const cobaltEndpoint = 'https://api.cobalt.tools/api/json';
+  const cobaltEndpoint = 'https://cobalt-api.kwiatekmiki.com/api/json';
   try {
     const response = await axios.post(cobaltEndpoint, { url: youtubeUrl }, {
       headers: {
