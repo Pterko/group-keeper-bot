@@ -11,7 +11,7 @@ import { getVkVideoInfo, downloadVideo } from "../helpers/yt-dlp.js";
 
 
 
-const COBALT_API_URL = 'https://cobalt-api.kwiatekmiki.com/api/json';
+const COBALT_API_URL = 'http://185.232.71.219:18525/';
 
 const composer = new Composer<Context>();
 const feature = composer;
