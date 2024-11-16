@@ -48,7 +48,7 @@ export async function fetchYoutubeVideoUrl(youtubeUrl: string) {
       },
     });
 
-    if (['success', 'redirect', 'stream'].includes(response.data.status) && response.data.url) {
+    if (['success', 'redirect', 'stream', 'tunnel'].includes(response.data.status) && response.data.url) {
       return { success: true, url: response.data.url };
     } else {
       console.log('Cobalt API did not return a video URL:', response.data);
