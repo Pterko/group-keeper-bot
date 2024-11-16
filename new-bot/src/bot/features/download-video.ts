@@ -228,7 +228,7 @@ async function fetchTwitterVideoUrl(twitterUrl: string) {
 
     console.log(`Twitter response: ${JSON.stringify(response.data)}`);
 
-    if (['success', 'redirect'].includes(response.data.status) && response.data.url && !response.data.url.includes('.jpg') && !response.data.url.includes('.png')) {
+    if (['success', 'redirect', 'tunnel'].includes(response.data.status) && response.data.url && !response.data.url.includes('.jpg') && !response.data.url.includes('.png')) {
       return { success: true, url: response.data.url };
     } else {
       return { success: false, message: response.data };
@@ -251,7 +251,7 @@ async function fetchInstagramVideoUrl(instagramUrl: string ) {
       },
     });
 
-    if (['success', 'redirect'].includes(response.data.status) && response.data.url) {
+    if (['success', 'redirect', 'tunnel'].includes(response.data.status) && response.data.url) {
       return { success: true, url: response.data.url };
     } else {
       console.log('Cobalt API did not return a video URL:', response.data);
