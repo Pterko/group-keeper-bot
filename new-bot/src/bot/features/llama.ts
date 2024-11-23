@@ -7,6 +7,7 @@ import { config } from "#root/config.js";
 import { chatMessageModel } from "#root/models/chatMessage.js";
 
 const botName = "Гуфовский";
+const model = "saiga_nemo_12b.Q8_0.gguf:latest";
 
 const randSayChatsIds = [ 
   -1001347524115, // kchk
@@ -187,7 +188,7 @@ const messageHandler = async (ctx: Context, next: () => Promise<void>) => {
 
   // https://huggingface.co/IlyaGusev/saiga_llama3_8b_gguf
   const data = {
-    "model": "saiga_gemma2_9b-q8_0.gguf:latest",
+    "model": model,
     stream: false,
     system: systemPrompt,
     prompt: prompt,
