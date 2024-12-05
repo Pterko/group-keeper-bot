@@ -49,7 +49,7 @@ export async function downloadVideo(url: string, timeout: number = 120_000): Pro
           '-o',
           filePath,
       ],
-      {shell: true, detached: true},
+      {shell: false, detached: false},
       controller.signal
       )
       .on('progress', (progress) =>

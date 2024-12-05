@@ -91,8 +91,14 @@ Promise<{success: boolean, videoFileUrl?: string, videoFilePath?: string, servic
 
     if (!videoFileUrl) {
       // We need to use a fallback local yt-dlp download
-      const downloadedVideoPath = await downloadVideo(url);
-      videoFilePath = downloadedVideoPath;
+      ctx.logger.debug(`Using yt-dlp to download video`);
+      try {
+        videoFilePath = await downloadVideo(url);
+      } catch (error) {
+        ctx.logger.error(`Error downloading video with yt-dlp:`);
+        console.log(error);
+        throw error;
+      }
     }
 
     if (!videoFilePath && !videoFileUrl) {
