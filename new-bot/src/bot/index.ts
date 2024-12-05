@@ -22,7 +22,7 @@ import { updateLogger } from "#root/bot/middlewares/index.js";
 import { config } from "#root/config.js";
 import { logger } from "#root/logger.js";
 import { downloadVideoFeature } from "./features/download-video.js";
-//import { catsBulgeFeature } from "./features/cats-bulge.js";
+import { catsBulgeFeature } from "./features/cats-bulge.js";
 import { hydrateFiles } from "@grammyjs/files";
 import { googleImagesFeature } from "./features/google-images.js";
 import { shortAnswersFeature } from "./features/short-answers.js";
@@ -85,7 +85,7 @@ export function createBot(token: string, options: Options = {}) {
   protectedBot.use(toxicFeature);
   protectedBot.use(downloadVideoFeature);
   protectedBot.use(googleImagesFeature);
-  //protectedBot.use(catsBulgeFeature);
+  protectedBot.use(catsBulgeFeature);
   protectedBot.use(welcomeFeature);
   protectedBot.use(rollFeature);
   protectedBot.use(adminFeature);
