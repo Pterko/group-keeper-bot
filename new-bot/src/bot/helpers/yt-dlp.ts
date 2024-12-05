@@ -46,10 +46,11 @@ export async function downloadVideo(url: string, timeout: number = 120_000): Pro
           url,
           '-f',
           'bestvideo[height<=1080][ext=mp4]+bestaudio[ext=m4a]/best[height<=1080][ext=mp4]/best[height<=1080]',
+          ...(config.YT_COOKIES_PATH ? ['--cookies', config.YT_COOKIES_PATH] : []),
           '-o',
           filePath,
       ],
-      {shell: true, detached: true},
+      {shell: false, detached: false},
       controller.signal
       )
       .on('progress', (progress) =>
