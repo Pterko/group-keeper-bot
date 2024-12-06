@@ -31,6 +31,19 @@ const feature = composer;
 // https://x.com/Catshealdeprsn/status/1824921646181847112
 // https://twitter.com/Catshealdeprsn/status/1824921646181847112
 
+// Helper function to resolve shorthand Instagram URLs
+async function resolveInstagramShorthandUrl(url: string): Promise<string | null> {
+  try {
+    const response = await axios.get(url, { maxRedirects: 0, validateStatus: null });
+    if (response.status === 301 || response.status === 302) {
+      return response.headers.location || null;
+    }
+    return null;
+  } catch (error) {
+    console.error('Error resolving shorthand Instagram URL:', error);
+    return null;
+  }
+}
 
 async function processVideoUrl(url: string, ctx: Context): 
 Promise<{success: boolean, videoFileUrl?: string, videoFilePath?: string, service?: 'yt' | 'ig' | 'tw' | 'vk' | 'other'}> {
@@ -38,6 +51,21 @@ Promise<{success: boolean, videoFileUrl?: string, videoFilePath?: string, servic
   let service: 'yt' | 'ig' | 'tw' | 'vk' | 'other' = 'other';
   try {
     ctx.logger.debug(`Processing URL: ${url}`);
+    
+    // Detect and resolve shorthand Instagram URLs by checking inclusion
+    if (url.includes("instagram.com/share/reel/")) {
+      // Ensure URL ends with a slash
+      const urlToResolve = url.endsWith('/') ? url : `${url}/`;
+      const resolvedUrl = await resolveInstagramShorthandUrl(urlToResolve);
+      if (resolvedUrl) {
+        ctx.logger.debug(`Resolved shorthand Instagram URL to: ${resolvedUrl}`);
+        url = resolvedUrl;
+      } else {
+        ctx.logger.error(`Failed to resolve shorthand Instagram URL: ${url}`);
+        return { success: false };
+      }
+    }
+
     parsedUrl = new URL(url);
   } catch (error) {
     ctx.logger.error(`Error parsing URL: ${error}`);
