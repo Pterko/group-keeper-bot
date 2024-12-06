@@ -45,7 +45,7 @@ export async function downloadVideo(url: string, timeout: number = 120_000): Pro
       .exec([
           url,
           '-f',
-          'bestvideo[height<=1080][ext=mp4]+bestaudio[ext=m4a]/best[height<=1080][ext=mp4]/best[height<=1080]',
+          'bestvideo[codec=h264][height<=1080][ext=mp4]+bestaudio[ext=m4a]/best[codec=h264][height<=1080][ext=mp4]/best[height<=1080]',
           ...(config.YT_COOKIES_PATH ? ['--cookies', config.YT_COOKIES_PATH] : []),
           '-o',
           filePath,
