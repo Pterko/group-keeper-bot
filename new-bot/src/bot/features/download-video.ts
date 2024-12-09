@@ -26,6 +26,8 @@ const feature = composer;
 
 // Instagram:
 // https://www.instagram.com/reel/C8z8kMENNa6/?igsh=MXhzODk5b2VieW9zcA==
+// https://www.instagram.com/share/reel/_smACWpcD
+// https://www.instagram.com/share/_smACWpcD
 
 // Twitter:
 // https://x.com/Catshealdeprsn/status/1824921646181847112
@@ -53,7 +55,7 @@ Promise<{success: boolean, videoFileUrl?: string, videoFilePath?: string, servic
     ctx.logger.debug(`Processing URL: ${url}`);
     
     // Detect and resolve shorthand Instagram URLs by checking inclusion
-    if (url.includes("instagram.com/share/reel/")) {
+    if (url.includes("instagram.com/share/reel/") || url.includes("instagram.com/share/")) {
       // Ensure URL ends with a slash
       const urlToResolve = url.endsWith('/') ? url : `${url}/`;
       const resolvedUrl = await resolveInstagramShorthandUrl(urlToResolve);
