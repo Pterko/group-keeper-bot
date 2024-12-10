@@ -23,7 +23,7 @@ const createConfigFromEnvironment = (environment: NodeJS.ProcessEnv) => {
     BOT_ALLOWED_UPDATES: z
       .array(z.enum(API_CONSTANTS.ALL_UPDATE_TYPES))
       .default([]),
-    BOT_ADMINS: z.array(z.number()).default([]),
+    BOT_ADMINS: z.array(z.string()).default([]),
 
     YT_API_KEY: z.string(),
     MONGODB_URI: z.string(),
