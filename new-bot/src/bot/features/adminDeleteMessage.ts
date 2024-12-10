@@ -20,6 +20,10 @@ composer.command('adminDeleteMessage', async (ctx: Context, next: NextFunction) 
     const messageId = ctx.message?.reply_to_message?.message_id;
     const chatId = ctx.message?.chat.id;
 
+    if (ctx.message?.reply_to_message?.from?.id !== ctx.me.id) {
+      return next();
+    }
+
     if (!messageId) {
       return ctx.reply('Please reply to the message you want to delete.');
     }
