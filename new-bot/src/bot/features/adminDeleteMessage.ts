@@ -11,7 +11,7 @@ composer.command('adminDeleteMessage', async (ctx: Context, next: NextFunction) 
     const admins = config.BOT_ADMINS ? config.BOT_ADMINS : [];
 
     // Check if the user is an admin
-    if (!admins.includes(ctx.from?.id.toString() ?? '')) {
+    if (!ctx.from || !admins.includes(ctx.from?.id.toString() ?? '')) {
       //return ctx.reply('You are not authorized to use this command.');
       return next();
     }
