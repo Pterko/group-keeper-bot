@@ -25,7 +25,7 @@ composer.command('adminDeleteMessage', async (ctx: Context, next: NextFunction) 
     }
 
     if (!messageId) {
-      return ctx.reply('Please reply to the message you want to delete.');
+      return next();
     }
 
     try {
@@ -34,7 +34,7 @@ composer.command('adminDeleteMessage', async (ctx: Context, next: NextFunction) 
       }
       // Delete the specified message
       await ctx.api.deleteMessage(chatId, messageId);
-      ctx.reply('Message deleted successfully.');
+      //ctx.reply('Message deleted successfully.');
 
       try {
         await ctx.api.deleteMessage(chatId, ctx.message?.message_id ?? 0);
