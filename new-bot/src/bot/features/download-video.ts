@@ -13,7 +13,7 @@ import { config } from '#root/config.js';
 
 
 
-const COBALT_API_URL = 'http://185.232.71.219:18525/';
+const COBALT_API_URL = config.COBALT_API_URL;
 
 const composer = new Composer<Context>();
 const feature = composer;
