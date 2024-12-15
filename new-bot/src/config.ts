@@ -34,6 +34,7 @@ const createConfigFromEnvironment = (environment: NodeJS.ProcessEnv) => {
     FFPROBE_PATH: z.string().default("/usr/bin/ffprobe"),
     MEDIA_STORAGE_GROUP_ID: z.string(),
     YT_COOKIES_PATH: z.string().default(""),
+    COBALT_API_URL: z.string(),
   });
 
   if (config.BOT_MODE === "webhook") {
