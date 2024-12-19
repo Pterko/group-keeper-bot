@@ -321,7 +321,7 @@ composer.inlineQuery(/(https?:\/\/(?:www\.|(?!www))[a-zA-Z0-9][a-zA-Z0-9-]+[a-zA
     ctx.logger.debug(`Video file path: ${videoFilePath}`);
 
     if (videoFileUrl && service != 'yt'){
-      return ctx.answerInlineQuery([InlineQueryResultBuilder.videoMp4("id-1", "Send Video", videoFileUrl, "https://img.icons8.com/?size=512&id=eAMGjpJ4skFB&format=png", {caption: `<a href="${sourceUrl}">Original</a>`, parse_mode: "HTML", })]);
+      return ctx.answerInlineQuery([InlineQueryResultBuilder.videoMp4("id-1", "Send Video", videoFileUrl, "https://img.icons8.com/?size=512&id=eAMGjpJ4skFB&format=png", {caption: `<a href="${sourceUrl}">Source</a>`, parse_mode: "HTML", })]);
     }
 
     if (videoFilePath || (service === 'yt' && videoFileUrl)){
