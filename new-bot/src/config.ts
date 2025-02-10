@@ -28,6 +28,7 @@ const createConfigFromEnvironment = (environment: NodeJS.ProcessEnv) => {
     YT_API_KEY: z.string(),
     MONGODB_URI: z.string(),
     OLLAMA_URL: z.string().default("http://localhost:11434"),
+    OLLAMA_TOKEN: z.string().default(""),
     FURRY_PATH: z.string().default("/app/furry/"),
     YTDLP_PATH: z.string().default("/usr/local/bin/yt-dlp"),
     FFMPEG_PATH: z.string().default("/usr/bin/ffmpeg"),
