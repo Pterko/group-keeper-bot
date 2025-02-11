@@ -33,6 +33,35 @@ const feature = composer;
 // https://x.com/Catshealdeprsn/status/1824921646181847112
 // https://twitter.com/Catshealdeprsn/status/1824921646181847112
 
+type SupportedVideoService = 'yt' | 'ig' | 'tw' | 'vk' | 'other';
+
+
+function isSupportedVideoUrl(url: string): { supported: boolean; service?: SupportedVideoService } {
+  try {
+    const parsedUrl = new URL(url);
+    const hostname = parsedUrl.hostname.replace(/^www\./, "");
+
+    // Define supported hostnames
+    const supportedServices = {
+      "youtube.com": "yt",
+      "youtu.be": "yt",
+      "instagram.com": "ig",
+      "twitter.com": "tw",
+      "x.com": "tw",
+      "vk.com": "vk"
+    } as const;
+
+    const service = supportedServices[hostname as keyof typeof supportedServices];
+    
+    return {
+      supported: !!service,
+      service: service || 'other'
+    };
+  } catch (error) {
+    return { supported: false };
+  }
+}
+
 // Helper function to resolve shorthand Instagram URLs
 async function resolveInstagramShorthandUrl(url: string): Promise<string | null> {
   try {
@@ -201,6 +230,13 @@ feature.on(
     // Youtube
 
     for (const url of urls) {
+      const { supported, service } = isSupportedVideoUrl(url.text);
+      
+      if (!supported) {
+        ctx.logger.debug(`URL ${url.text} is not supported by video downloader`);
+        continue;
+      }
+
       try {
         const { success, videoFileUrl, videoFilePath } = await processVideoUrl(url.text, ctx);
 

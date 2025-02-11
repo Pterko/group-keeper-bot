@@ -19,6 +19,7 @@ const axiosConfig = {
   timeout: 1500000, // 15 minutes in milliseconds
   headers: {
     'Content-Type': 'application/json',
+    'Authorization': `Bearer ${config.OLLAMA_TOKEN}`
   },
 };
 
