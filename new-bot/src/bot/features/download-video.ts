@@ -371,7 +371,7 @@ composer.inlineQuery(/(https?:\/\/(?:www\.|(?!www))[a-zA-Z0-9][a-zA-Z0-9-]+[a-zA
         PH_LOADING_VIDEO_URL,
         PH_THUMBNAIL_URL,
         {
-          caption: `Pending download, please wait...`,
+          caption: `Downloading video ${sourceUrl}`,
           parse_mode: "HTML",
           video_width: PH_VIDEO_WIDTH,
           video_height: PH_VIDEO_HEIGHT,
@@ -478,7 +478,7 @@ async function downloadVideoAndReplace(sourceUrl: string, inlineMessageId: strin
       {
         type: "video",
         media: sentMsg.video.file_id,
-        caption: `<a href="${sourceUrl}">Original</a>`,
+        caption: `<a href="${sourceUrl}">Source</a>`,
         parse_mode: "HTML",
         width: sentMsg.video.width,
         height: sentMsg.video.height,
