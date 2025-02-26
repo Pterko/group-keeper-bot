@@ -367,21 +367,22 @@ composer.inlineQuery(/(https?:\/\/(?:www\.|(?!www))[a-zA-Z0-9][a-zA-Z0-9-]+[a-zA
     return ctx.answerInlineQuery([
       InlineQueryResultBuilder.videoMp4(
         `download-video-${randomUUID()}`,
-        "Downloading...",
+        "Downloading video, click to send...",
         PH_LOADING_VIDEO_URL,
         PH_THUMBNAIL_URL,
         {
-          caption: `Downloading video ${sourceUrl}`,
+          caption: `Downloading video ${sourceUrl}. Please wait.`,
           parse_mode: "HTML",
           video_width: PH_VIDEO_WIDTH,
           video_height: PH_VIDEO_HEIGHT,
           video_duration: PH_VIDEO_DURATION,
           reply_markup: new InlineKeyboard()
             .text("Downloading...", "dweqwei902e09129e0")
-        }
-        
+        },
       )
-    ])
+    ], {
+      cache_time: 1,
+    })
 
     // ctx.logger.debug(`Video file URL: ${videoFileUrl}`);
     // ctx.logger.debug(`Video file path: ${videoFilePath}`);
