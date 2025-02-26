@@ -10,7 +10,15 @@ import { addReplyParam } from "@roziscoding/grammy-autoquote";
 import { getVkVideoInfo, downloadVideo } from "../helpers/yt-dlp.js";
 import downloadFile from '../helpers/download-file.js';
 import { config } from '#root/config.js';
+import { randomUUID } from 'node:crypto';
 
+
+// --- Placeholder constants (customize these as needed) ---
+const PH_LOADING_VIDEO_URL = "https://magicxor.github.io/static/ytdl-inline-bot/loading_v2.mp4";
+const PH_THUMBNAIL_URL = "https://magicxor.github.io/static/ytdl-inline-bot/loading_v1.jpg";
+const PH_VIDEO_WIDTH = 1024;
+const PH_VIDEO_HEIGHT = 576;
+const PH_VIDEO_DURATION = 10;
 
 
 const COBALT_API_URL = config.COBALT_API_URL;
@@ -76,7 +84,7 @@ async function resolveInstagramShorthandUrl(url: string): Promise<string | null>
   }
 }
 
-async function processVideoUrl(url: string, ctx: Context): 
+async function processVideoUrl(url: string, ctx: Context, isVideoRequired: boolean = true): 
 Promise<{success: boolean, videoFileUrl?: string, videoFilePath?: string, service?: 'yt' | 'ig' | 'tw' | 'vk' | 'other'}> {
   let parsedUrl;
   let service: 'yt' | 'ig' | 'tw' | 'vk' | 'other' = 'other';
@@ -144,29 +152,31 @@ Promise<{success: boolean, videoFileUrl?: string, videoFilePath?: string, servic
     if (ctx.chat?.id) {
       ctx.replyWithChatAction("upload_video");
     }
-
-    const cobaltToolsResult = await fetchYoutubeVideoUrl(url);
-    videoFileUrl = cobaltToolsResult.url;
-
-    if (!videoFileUrl) {
-      // We need to use a fallback local yt-dlp download
-      ctx.logger.debug(`Using yt-dlp to download video`);
-      try {
-        videoFilePath = await downloadVideo(url);
-      } catch (error) {
-        ctx.logger.error(`Error downloading video with yt-dlp:`);
-        console.log(error);
-        throw error;
+    if (isVideoRequired){
+      const cobaltToolsResult = await fetchYoutubeVideoUrl(url);
+      videoFileUrl = cobaltToolsResult.url;
+  
+      if (!videoFileUrl) {
+        // We need to use a fallback local yt-dlp download
+        ctx.logger.debug(`Using yt-dlp to download video`);
+        try {
+          videoFilePath = await downloadVideo(url);
+        } catch (error) {
+          ctx.logger.error(`Error downloading video with yt-dlp:`);
+          console.log(error);
+          throw error;
+        }
+      }
+  
+      if (!videoFilePath && !videoFileUrl) {
+        ctx.logger.error({
+          msg: `Failed to download YT video`,
+          url: url,
+        });
+        return { success: false };
       }
     }
 
-    if (!videoFilePath && !videoFileUrl) {
-      ctx.logger.error({
-        msg: `Failed to download YT video`,
-        url: url,
-      });
-      return { success: false };
-    }
     service = 'yt';
   }
 
@@ -202,7 +212,7 @@ Promise<{success: boolean, videoFileUrl?: string, videoFilePath?: string, servic
     service = 'vk';
   }
 
-  if (!videoFileUrl && !videoFilePath) {
+  if (!videoFileUrl && !videoFilePath && isVideoRequired) {
     ctx.logger.error({
       msg: `Failed to download video`,
       url: url,
@@ -348,30 +358,51 @@ composer.inlineQuery(/(https?:\/\/(?:www\.|(?!www))[a-zA-Z0-9][a-zA-Z0-9-]+[a-zA
   }
   try {
     const sourceUrl = match[0];
-    const { success, videoFileUrl, videoFilePath, service } = await processVideoUrl(sourceUrl, ctx);
+    const { success, videoFileUrl, videoFilePath, service } = await processVideoUrl(sourceUrl, ctx, false);
 
     if (!success) {
       return;
     }
-    ctx.logger.debug(`Video file URL: ${videoFileUrl}`);
-    ctx.logger.debug(`Video file path: ${videoFilePath}`);
 
-    if (videoFileUrl && service != 'yt'){
-      return ctx.answerInlineQuery([InlineQueryResultBuilder.videoMp4("id-1", "Send Video", videoFileUrl, "https://img.icons8.com/?size=512&id=eAMGjpJ4skFB&format=png", {caption: `<a href="${sourceUrl}">Source</a>`, parse_mode: "HTML", })]);
-    }
+    return ctx.answerInlineQuery([
+      InlineQueryResultBuilder.videoMp4(
+        `download-video-${randomUUID()}`,
+        "Downloading video, click to send...",
+        PH_LOADING_VIDEO_URL,
+        PH_THUMBNAIL_URL,
+        {
+          caption: `Downloading video ${sourceUrl}. Please wait.`,
+          parse_mode: "HTML",
+          video_width: PH_VIDEO_WIDTH,
+          video_height: PH_VIDEO_HEIGHT,
+          video_duration: PH_VIDEO_DURATION,
+          reply_markup: new InlineKeyboard()
+            .text("Downloading...", "dweqwei902e09129e0")
+        },
+      )
+    ], {
+      cache_time: 1,
+    })
 
-    if (videoFilePath || (service === 'yt' && videoFileUrl)){
-      if (service === 'yt' && videoFileUrl){
-        const videoFilePath = await downloadFile(videoFileUrl);
-        ctx.logger.debug(`Local video file path: ${videoFilePath}`);
-      }
-      if (!videoFilePath){
-        return;
-      }
-      const videoSendResult = await ctx.api.sendVideo(config.MEDIA_STORAGE_GROUP_ID, new InputFile(videoFilePath));
-      ctx.logger.debug(`Video send result: ${JSON.stringify(videoSendResult)}`);
-      return ctx.answerInlineQuery([InlineQueryResultBuilder.videoMp4("id-1", "Send Video", videoSendResult.video.file_id, "https://img.icons8.com/?size=512&id=eAMGjpJ4skFB&format=png", {caption: `<a href="${sourceUrl}">Original</a>`, parse_mode: "HTML", })]);
-    }
+    // ctx.logger.debug(`Video file URL: ${videoFileUrl}`);
+    // ctx.logger.debug(`Video file path: ${videoFilePath}`);
+
+    // if (videoFileUrl && service != 'yt'){
+    //   return ctx.answerInlineQuery([InlineQueryResultBuilder.videoMp4("id-1", "Send Video", videoFileUrl, "https://img.icons8.com/?size=512&id=eAMGjpJ4skFB&format=png", {caption: `<a href="${sourceUrl}">Source</a>`, parse_mode: "HTML", })]);
+    // }
+
+    // if (videoFilePath || (service === 'yt' && videoFileUrl)){
+    //   if (service === 'yt' && videoFileUrl){
+    //     const videoFilePath = await downloadFile(videoFileUrl);
+    //     ctx.logger.debug(`Local video file path: ${videoFilePath}`);
+    //   }
+    //   if (!videoFilePath){
+    //     return;
+    //   }
+    //   const videoSendResult = await ctx.api.sendVideo(config.MEDIA_STORAGE_GROUP_ID, new InputFile(videoFilePath));
+    //   ctx.logger.debug(`Video send result: ${JSON.stringify(videoSendResult)}`);
+    //   return ctx.answerInlineQuery([InlineQueryResultBuilder.videoMp4("id-1", "Send Video", videoSendResult.video.file_id, "https://img.icons8.com/?size=512&id=eAMGjpJ4skFB&format=png", {caption: `<a href="${sourceUrl}">Original</a>`, parse_mode: "HTML", })]);
+    // }
 
   } catch (error) {
     ctx.logger.error(`Error processing inline query: ${error}`);
@@ -380,5 +411,98 @@ composer.inlineQuery(/(https?:\/\/(?:www\.|(?!www))[a-zA-Z0-9][a-zA-Z0-9-]+[a-zA
   }
 })
 
+
+composer.chosenInlineResult(/download-video-[0-9A-F]{8}-[0-9A-F]{4}-4[0-9A-F]{3}-[89AB][0-9A-F]{3}-[0-9A-F]{12}/i, async (ctx: Context) => {
+  const chosen = ctx.chosenInlineResult;
+  ctx.logger.debug(`Received inline chosen result: ${JSON.stringify(chosen)}`)
+  if (!chosen || !chosen.inline_message_id) return;
+  const inlineMessageId = chosen.inline_message_id;
+  const sourceUrl = chosen.query;
+  ctx.logger.debug(`Chosen inline result for URL: ${sourceUrl} with inline_message_id: ${inlineMessageId}`);
+  // Start asynchronous download and replacement
+  downloadVideoAndReplace(sourceUrl, inlineMessageId, ctx).catch(err => {
+    ctx.logger.error(`Error in downloadVideoAndReplace: ${err}`);
+  });
+});
+
+async function downloadVideoAndReplace(sourceUrl: string, inlineMessageId: string, ctx: Context): Promise<void> {
+  try {
+
+    ctx.logger.debug(`Starting download and replacement for URL: ${sourceUrl}`);
+    const { success, videoFileUrl, videoFilePath, service } = await processVideoUrl(sourceUrl, ctx, true);
+    if (!success) {
+      ctx.logger.error(`Failed to process video URL: ${sourceUrl}`);
+      await ctx.api.editMessageTextInline(inlineMessageId, "Failed to get video url. Sorry :(")
+      return;
+    }
+
+    if (videoFileUrl) {
+      try{
+
+      
+        const urlResult = await ctx.api.editMessageMediaInline(inlineMessageId, {
+          type: 'video', 
+          media: videoFileUrl
+        })
+        ctx.logger.debug(`Update result via url: ${JSON.stringify(urlResult)}`);
+        if (urlResult === true){
+          return;
+        }
+      } catch (ex) {
+        ctx.logger.debug('URL download failed, fallback to usual download')
+      }
+    }
+
+    // Ensure we have a local file (download if necessary)
+    let localFilePath = videoFilePath;
+    if (!localFilePath) {
+      ctx.logger.debug(`Downloading video file locally for URL: ${videoFileUrl}`);
+      if (!videoFileUrl){
+        await ctx.api.editMessageTextInline(inlineMessageId, "Failed to get video url... Sorry :(");
+        return;
+      }
+      localFilePath = await downloadFile(videoFileUrl);
+    }
+
+    // Upload the video to the media storage chat to get a Telegram file_id
+    ctx.logger.debug(`Uploading video from ${localFilePath} to media storage chat ${config.MEDIA_STORAGE_GROUP_ID}`);
+    const sentMsg = await ctx.api.sendVideo(config.MEDIA_STORAGE_GROUP_ID, new InputFile(localFilePath));
+    if (!sentMsg.video || !sentMsg.video.file_id) {
+      ctx.logger.error("Failed to obtain file_id from uploaded video.");
+      await ctx.api.editMessageTextInline(inlineMessageId, "Failed to upload video.", {});
+      return;
+    }
+    // Replace the placeholder inline message with the actual video
+    ctx.logger.debug(`Editing inline message ${inlineMessageId} with file_id ${sentMsg.video.file_id}`);
+    await ctx.api.editMessageMediaInline(
+      inlineMessageId,
+      {
+        type: "video",
+        media: sentMsg.video.file_id,
+        caption: `<a href="${sourceUrl}">Source</a>`,
+        parse_mode: "HTML",
+        width: sentMsg.video.width,
+        height: sentMsg.video.height,
+        duration: sentMsg.video.duration,
+        supports_streaming: true,
+      },
+      {}
+    );
+    // Optionally, remove the local file after uploading
+    try {
+      await fs.unlink(localFilePath);
+      ctx.logger.debug(`Deleted local file: ${localFilePath}`);
+    } catch (unlinkErr) {
+      ctx.logger.error(`Error deleting local file: ${unlinkErr}`);
+    }
+  } catch (error) {
+    ctx.logger.error(`Error in downloadVideoAndReplace: ${error}`);
+    try {
+      await ctx.api.editMessageTextInline(inlineMessageId, "An error occurred while processing the video.", {});
+    } catch (editErr) {
+      ctx.logger.error(`Failed to update inline message with error info: ${editErr}`);
+    }
+  }
+}
 
 export { composer as downloadVideoFeature };
