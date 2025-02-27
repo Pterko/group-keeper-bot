@@ -442,7 +442,9 @@ async function downloadVideoAndReplace(sourceUrl: string, inlineMessageId: strin
       
         const urlResult = await ctx.api.editMessageMediaInline(inlineMessageId, {
           type: 'video', 
-          media: videoFileUrl
+          media: videoFileUrl,
+          caption: `<a href="${sourceUrl}">Source</a> | Service: ${service}`,
+          parse_mode: "HTML",
         })
         ctx.logger.debug(`Update result via url: ${JSON.stringify(urlResult)}`);
         if (urlResult === true){
@@ -479,7 +481,7 @@ async function downloadVideoAndReplace(sourceUrl: string, inlineMessageId: strin
       {
         type: "video",
         media: sentMsg.video.file_id,
-        caption: `<a href="${sourceUrl}">Source</a>`,
+        caption: `<a href="${sourceUrl}">Source</a> | Service: ${service}`,
         parse_mode: "HTML",
         width: sentMsg.video.width,
         height: sentMsg.video.height,
