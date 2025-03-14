@@ -36,6 +36,8 @@ const feature = composer;
 // https://www.instagram.com/reel/C8z8kMENNa6/?igsh=MXhzODk5b2VieW9zcA==
 // https://www.instagram.com/share/reel/_smACWpcD
 // https://www.instagram.com/share/_smACWpcD
+// Difficult instagram videos
+// https://www.instagram.com/reel/DFU0c-hsXc_/?igsh=cG5mYjJwZ2Via2Yy
 
 // Twitter:
 // https://x.com/Catshealdeprsn/status/1824921646181847112
@@ -123,9 +125,10 @@ Promise<{success: boolean, videoFileUrl?: string, videoFilePath?: string, servic
       ctx.replyWithChatAction("upload_video");
     }
     // Imagine that this url is a valid Instagram video
-
-    const result = await fetchInstagramVideoUrl(url);
-    videoFileUrl = result.url;
+    if (isVideoRequired){
+      const result = await fetchInstagramVideoUrl(url);
+      videoFileUrl = result.url;
+    }
     service = 'ig';
   }
 
@@ -281,21 +284,21 @@ feature.on(
 );
 
 // Function to fetch video URL or download video using Fallback API
-async function fetchFallbackInstagramVideoUrl(instagramUrl: string) {
-  const fallbackEndpoint = `https://instagram-videos.vercel.app/api/video?postUrl=${encodeURIComponent(instagramUrl)}`;
-  try {
-    const response = await axios.get(fallbackEndpoint);
-    if (response.data.status === 'success' && response.data.data.videoUrl) {
-      return { success: true, url: response.data.data.videoUrl };
-    } else {
-      console.log('Fallback API did not return a video URL:', response.data.message);
-      return { success: false, message: 'Failed to get video URL from fallback API' };
-    }
-  } catch (error) {
-    console.error('Error calling Fallback API:', error);
-    return { success: false, message: 'Error calling Fallback API' };
-  }
-}
+// async function fetchFallbackInstagramVideoUrl(instagramUrl: string) {
+//   const fallbackEndpoint = `https://instagram-videos.vercel.app/api/video?postUrl=${encodeURIComponent(instagramUrl)}`;
+//   try {
+//     const response = await axios.get(fallbackEndpoint);
+//     if (response.data.status === 'success' && response.data.data.videoUrl) {
+//       return { success: true, url: response.data.data.videoUrl };
+//     } else {
+//       console.log('Fallback API did not return a video URL:', response.data.message);
+//       return { success: false, message: 'Failed to get video URL from fallback API' };
+//     }
+//   } catch (error) {
+//     console.error('Error calling Fallback API:', error);
+//     return { success: false, message: 'Error calling Fallback API' };
+//   }
+// }
 
 async function fetchTwitterVideoUrl(twitterUrl: string) {
   try {
@@ -338,12 +341,14 @@ async function fetchInstagramVideoUrl(instagramUrl: string ) {
     } else {
       console.log('Cobalt API did not return a video URL:', response.data);
       // If Cobalt API fails, try the fallback API
-      return await fetchFallbackInstagramVideoUrl(instagramUrl);
+      return { success: false, message: response.data };
+      //return await fetchFallbackInstagramVideoUrl(instagramUrl);
     }
   } catch (error) {
     console.error('Error calling Cobalt API:', error);
     // If Cobalt API fails, try the fallback API
-    return await fetchFallbackInstagramVideoUrl(instagramUrl);
+    return { success: false, message: error };
+    //return await fetchFallbackInstagramVideoUrl(instagramUrl);
   }
 }
 
@@ -407,6 +412,7 @@ composer.inlineQuery(/(https?:\/\/(?:www\.|(?!www))[a-zA-Z0-9][a-zA-Z0-9-]+[a-zA
   } catch (error) {
     ctx.logger.error(`Error processing inline query: ${error}`);
   } finally {
+    newrelic.incrementMetric("features/download-video/inline-requests", 1);
     return next();
   }
 })
@@ -423,6 +429,8 @@ composer.chosenInlineResult(/download-video-[0-9A-F]{8}-[0-9A-F]{4}-4[0-9A-F]{3}
   downloadVideoAndReplace(sourceUrl, inlineMessageId, ctx).catch(err => {
     ctx.logger.error(`Error in downloadVideoAndReplace: ${err}`);
   });
+
+  newrelic.incrementMetric("features/download-video/inline-chosen-video", 1);
 });
 
 async function downloadVideoAndReplace(sourceUrl: string, inlineMessageId: string, ctx: Context): Promise<void> {
@@ -497,7 +505,9 @@ async function downloadVideoAndReplace(sourceUrl: string, inlineMessageId: strin
     } catch (unlinkErr) {
       ctx.logger.error(`Error deleting local file: ${unlinkErr}`);
     }
+    newrelic.incrementMetric("features/download-video/inline-update-success", 1);
   } catch (error) {
+    newrelic.incrementMetric("features/download-video/inline-update-error", 1);
     ctx.logger.error(`Error in downloadVideoAndReplace: ${error}`);
     try {
       await ctx.api.editMessageTextInline(inlineMessageId, "An error occurred while processing the video.", {});
