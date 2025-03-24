@@ -22,7 +22,7 @@ export const staticPicturesHandler = (folderKey: string) => {
         );
       }
     });
-    await await next();
+    await next();
   };
 };
 
