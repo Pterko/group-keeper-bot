@@ -19,6 +19,7 @@ export function updateLogger(): Middleware<Context> {
     newrelic.incrementMetric('updates/received', 1);
 
     newrelic.recordCustomEvent('TelegramUpdate', {
+      updateId: ctx.update.update_id,
       userId: ctx.from?.id || 0,
       chatId: ctx.chat?.id || 0,
     });
@@ -46,6 +47,26 @@ export function updateLogger(): Middleware<Context> {
       });
       newrelic.incrementMetric('updates/processed', 1);
       newrelic.recordMetric('updates/processing_time', endTime - startTime);
+
+      
+      newrelic.recordCustomEvent('TelegramUpdateProcessed', {
+        updateId: ctx.update.update_id,
+        userId: ctx.from?.id || 0,
+        chatId: ctx.chat?.id || 0,
+        duration: endTime - startTime,
+        interaction: ctx.interactedWithUser,
+        isGroup: ctx.update.message?.chat.type === 'group' || ctx.update.message?.chat.type === 'supergroup',
+        mainTriggeredFeature: ctx.triggeredFeatures[0]
+      })
+
+      if (ctx.interactedWithUser) {
+        newrelic.incrementMetric('updates/interacted', 1);
+        if (ctx.update.message?.chat.type === 'group') {  
+          newrelic.incrementMetric('updates/interacted-group', 1);
+        } else {
+          newrelic.incrementMetric('updates/interacted-private', 1);
+        }
+      }
     }
   };
 }

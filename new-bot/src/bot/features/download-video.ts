@@ -257,6 +257,9 @@ feature.on(
           continue;
         }
         // After processing urls and videos, we should look if we found some video file
+        ctx.interactedWithUser = true;
+        ctx.triggeredFeatures.push("download-video");
+
         if (videoFileUrl) {
           newrelic.incrementMetric("features/download-video/requests", 1);
           try {

@@ -35,6 +35,9 @@ composer.hears(/^(покажи )/i, async (ctx) => {
   const getResult = await getPictureByKeysV2(searchKey);
 
   if (getResult.status === "success" && getResult.images.length > 0) {
+    ctx.interactedWithUser = true;
+    ctx.triggeredFeatures.push("google-images");
+    
     if (getResult.url.endsWith(".gif")) {
       await ctx.replyWithDocument(getResult.url, { reply_to_message_id: ctx.message.message_id })
         .catch(() => urlFallback(ctx, getResult.url));
