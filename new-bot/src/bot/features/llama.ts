@@ -199,6 +199,8 @@ const messageHandler = async (ctx: Context, next: () => Promise<void>) => {
 
   await ctx.replyWithChatAction("typing");
   newrelic.incrementMetric('features/llama/requests', 1);
+  ctx.interactedWithUser = true;
+  ctx.triggeredFeatures.push("llama");
   queue.push({ ctx, data, randSay });
 
   await next();

@@ -17,6 +17,9 @@ const rollHandler = (mode: "double" | "roll") => async (ctx: Context) => {
     randomInt = getRandomInt(0, 100);
   }
 
+  ctx.interactedWithUser = true;
+  ctx.triggeredFeatures.push("roll");
+  
   await ctx.reply(`Ты выбросил ***${randomInt}***`, {
     parse_mode: "Markdown",
     reply_to_message_id: ctx.message?.message_id,
