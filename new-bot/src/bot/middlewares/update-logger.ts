@@ -61,7 +61,7 @@ export function updateLogger(): Middleware<Context> {
 
       if (ctx.interactedWithUser) {
         newrelic.incrementMetric('updates/interacted', 1);
-        if (ctx.update.message?.chat.type === 'group') {  
+        if (ctx.update.message?.chat.type === 'group' || ctx.update.message?.chat.type === 'supergroup') {  
           newrelic.incrementMetric('updates/interacted-group', 1);
         } else {
           newrelic.incrementMetric('updates/interacted-private', 1);
