@@ -167,6 +167,7 @@ composer.on(["message:text", "message:photo"], async (ctx, next) => {
   const jimpedBuffer = await targetImage.getBufferAsync("image/jpeg");
   console.log("jimpedBuffer", jimpedBuffer);
 
+  ctx.interactedWithUser = true;
   return await ctx.replyWithPhoto(new InputFile(jimpedBuffer), { reply_to_message_id: message.message_id });
 });
 

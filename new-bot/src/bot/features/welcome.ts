@@ -15,6 +15,9 @@ const WELCOME_START_MESSAGE = `Привет! Это Гуфовский - мул�
 Удачи! Если что - пиши в бот обратной связи: @GroupKeeperFeedbackBot`
 
 composer.command("start", async (ctx) => {
+  ctx.interactedWithUser = true;
+  ctx.triggeredFeatures.push("welcome");
+  
   await ctx.reply(WELCOME_START_MESSAGE, { parse_mode: "HTML" });
 });
 

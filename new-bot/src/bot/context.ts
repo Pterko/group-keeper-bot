@@ -14,6 +14,8 @@ export type SessionData = {
 
 type ExtendedContextFlavor = {
   logger: Logger;
+  interactedWithUser: boolean;
+  triggeredFeatures: ('cats-bulge' | 'download-video' | 'furry' | 'google-images' | 'llama' | 'roll' | 'welcome')[]
 };
 
 type VideoConverterContext = {
@@ -42,6 +44,8 @@ interface Dependencies {
 export function createContextConstructor({ logger }: Dependencies) {
   return class extends DefaultContext implements ExtendedContextFlavor {
     logger: Logger;
+    interactedWithUser = false;
+    triggeredFeatures = [];
 
     constructor(update: Update, api: Api, me: UserFromGetMe) {
       super(update, api, me);
