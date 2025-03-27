@@ -11,6 +11,7 @@ import { getVkVideoInfo, downloadVideo } from "../helpers/yt-dlp.js";
 import downloadFile from '../helpers/download-file.js';
 import { config } from '#root/config.js';
 import { randomUUID } from 'node:crypto';
+import { toError } from '../utils/error-prettier.js';
 
 
 // --- Placeholder constants (customize these as needed) ---
@@ -82,7 +83,7 @@ async function resolveInstagramShorthandUrl(url: string): Promise<string | null>
     return null;
   } catch (error) {
     console.error('Error resolving shorthand Instagram URL:', error);
-    newrelic.noticeError(new Error(JSON.stringify(error)), { url });
+    newrelic.noticeError(toError(error), { url });
     return null;
   }
 }
@@ -112,7 +113,7 @@ Promise<{success: boolean, videoFileUrl?: string, videoFilePath?: string, servic
   } catch (error) {
     ctx.logger.error(`Error parsing URL: ${error}`);
     console.log(error);
-    newrelic.noticeError(new Error(JSON.stringify(error)), { url });
+    newrelic.noticeError(toError(error), { url });
     return { success: false };
   }
   const hostname = parsedUrl.hostname.replace(/^www\./, ""); // Remove 'www.' prefix if present
@@ -168,7 +169,7 @@ Promise<{success: boolean, videoFileUrl?: string, videoFilePath?: string, servic
           videoFilePath = await downloadVideo(url);
         } catch (error) {
           ctx.logger.error(`Error downloading video with yt-dlp:`);
-          newrelic.noticeError(new Error(JSON.stringify(error)), { url, ctx: JSON.stringify(ctx) });
+          newrelic.noticeError(toError(error), { url, ctx: JSON.stringify(ctx) });
           console.log(error);
           throw error;
         }
@@ -283,7 +284,7 @@ feature.on(
         }
       } catch (error) {
         ctx.logger.error({ msg: "Error processing message", error });
-        newrelic.noticeError(new Error(JSON.stringify(error)), { ctx: JSON.stringify(ctx) });
+        newrelic.noticeError(toError(error), { ctx: JSON.stringify(ctx) });
         newrelic.incrementMetric("features/download-video/errors", 1);
       } finally {
         return await next();
