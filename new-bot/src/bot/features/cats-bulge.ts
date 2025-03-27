@@ -168,6 +168,7 @@ composer.on(["message:text", "message:photo"], async (ctx, next) => {
   console.log("jimpedBuffer", jimpedBuffer);
 
   ctx.interactedWithUser = true;
+  ctx.triggeredFeatures.push("cats-bulge");
   return await ctx.replyWithPhoto(new InputFile(jimpedBuffer), { reply_to_message_id: message.message_id });
 });
 

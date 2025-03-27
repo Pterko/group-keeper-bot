@@ -11,6 +11,7 @@ import { getVkVideoInfo, downloadVideo } from "../helpers/yt-dlp.js";
 import downloadFile from '../helpers/download-file.js';
 import { config } from '#root/config.js';
 import { randomUUID } from 'node:crypto';
+import { toError } from '../utils/error-prettier.js';
 
 
 // --- Placeholder constants (customize these as needed) ---
@@ -82,6 +83,7 @@ async function resolveInstagramShorthandUrl(url: string): Promise<string | null>
     return null;
   } catch (error) {
     console.error('Error resolving shorthand Instagram URL:', error);
+    newrelic.noticeError(toError(error), { url });
     return null;
   }
 }
@@ -111,6 +113,7 @@ Promise<{success: boolean, videoFileUrl?: string, videoFilePath?: string, servic
   } catch (error) {
     ctx.logger.error(`Error parsing URL: ${error}`);
     console.log(error);
+    newrelic.noticeError(toError(error), { url });
     return { success: false };
   }
   const hostname = parsedUrl.hostname.replace(/^www\./, ""); // Remove 'www.' prefix if present
@@ -166,6 +169,7 @@ Promise<{success: boolean, videoFileUrl?: string, videoFilePath?: string, servic
           videoFilePath = await downloadVideo(url);
         } catch (error) {
           ctx.logger.error(`Error downloading video with yt-dlp:`);
+          newrelic.noticeError(toError(error), { url, ctx: JSON.stringify(ctx) });
           console.log(error);
           throw error;
         }
@@ -176,6 +180,7 @@ Promise<{success: boolean, videoFileUrl?: string, videoFilePath?: string, servic
           msg: `Failed to download YT video`,
           url: url,
         });
+        newrelic.noticeError(new Error("Total yt download error"), { url, ctx: JSON.stringify(ctx) });
         return { success: false };
       }
     }
@@ -220,6 +225,7 @@ Promise<{success: boolean, videoFileUrl?: string, videoFilePath?: string, servic
       msg: `Failed to download video`,
       url: url,
     });
+    newrelic.noticeError(new Error("Total video download error"), { url, ctx: JSON.stringify(ctx) });
     return { success: false };
   }
 
@@ -278,6 +284,7 @@ feature.on(
         }
       } catch (error) {
         ctx.logger.error({ msg: "Error processing message", error });
+        newrelic.noticeError(toError(error), { ctx: JSON.stringify(ctx) });
         newrelic.incrementMetric("features/download-video/errors", 1);
       } finally {
         return await next();
@@ -471,7 +478,8 @@ async function downloadVideoAndReplace(sourceUrl: string, inlineMessageId: strin
     if (!localFilePath) {
       ctx.logger.debug(`Downloading video file locally for URL: ${videoFileUrl}`);
       if (!videoFileUrl){
-        await ctx.api.editMessageTextInline(inlineMessageId, "Failed to get video url... Sorry :(");
+        newrelic.noticeError(new Error("Failed to get video url"), {ctx: JSON.stringify(ctx)});
+        await ctx.api.editMessageTextInline(inlineMessageId, `Failed to get video url. Sorry, please watch in your browser: ${sourceUrl}`);
         return;
       }
       localFilePath = await downloadFile(videoFileUrl);
@@ -482,7 +490,8 @@ async function downloadVideoAndReplace(sourceUrl: string, inlineMessageId: strin
     const sentMsg = await ctx.api.sendVideo(config.MEDIA_STORAGE_GROUP_ID, new InputFile(localFilePath));
     if (!sentMsg.video || !sentMsg.video.file_id) {
       ctx.logger.error("Failed to obtain file_id from uploaded video.");
-      await ctx.api.editMessageTextInline(inlineMessageId, "Failed to upload video.", {});
+      newrelic.noticeError(new Error("Failed to obtain file_id from uploaded video."), {ctx: JSON.stringify(ctx)});
+      await ctx.api.editMessageTextInline(inlineMessageId, `Failed to upload video. Sorry, please watch in your browser: ${sourceUrl}`, {});
       return;
     }
     // Replace the placeholder inline message with the actual video
@@ -511,6 +520,7 @@ async function downloadVideoAndReplace(sourceUrl: string, inlineMessageId: strin
     newrelic.incrementMetric("features/download-video/inline-update-success", 1);
   } catch (error) {
     newrelic.incrementMetric("features/download-video/inline-update-error", 1);
+    newrelic.noticeError(toError(error), {ctx: JSON.stringify(ctx)});
     ctx.logger.error(`Error in downloadVideoAndReplace: ${error}`);
     try {
       await ctx.api.editMessageTextInline(inlineMessageId, "An error occurred while processing the video.", {});
