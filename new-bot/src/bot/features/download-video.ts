@@ -224,7 +224,7 @@ Promise<{success: boolean, videoFileUrl?: string, videoFilePath?: string, servic
       msg: `Failed to download video`,
       url: url,
     });
-    newrelic.noticeError(new Error(JSON.stringify("Total video download error")), { url, ctx: JSON.stringify(ctx) });=
+    newrelic.noticeError(new Error(JSON.stringify("Total video download error")), { url, ctx: JSON.stringify(ctx) });
     return { success: false };
   }
 
