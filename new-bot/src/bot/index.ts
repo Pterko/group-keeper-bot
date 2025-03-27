@@ -34,6 +34,7 @@ import { ChatMember } from "@grammyjs/types";
 import { logChatMessage } from "./middlewares/log-chat-message.js";
 import { rollFeature } from "./features/roll.js";
 import { adminDeleteMessage } from "./features/adminDeleteMessage.js";
+import newrelic from "newrelic";
 
 type Options = {
   sessionStorage?: StorageAdapter<SessionData>;
@@ -98,9 +99,11 @@ export function createBot(token: string, options: Options = {}) {
     protectedBot.use(languageFeature);
   }
 
+  class UnexpectedError extends Error {}
 
   bot.catch((err) => {
     logger.error(`Error in bot: ${err.error} , while parsing update ${JSON.stringify(err.ctx)}`);
+    newrelic.noticeError(new UnexpectedError(JSON.stringify(err.error)), { ctx: JSON.stringify(err.ctx) });
   }) 
 
   bot.api.setMyCommands([

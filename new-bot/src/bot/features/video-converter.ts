@@ -131,6 +131,7 @@ const handleWebm = async (ctx: Context, next: () => Promise<void>) => {
     .on("end", () => {
       console.log("file has been converted successfully");
 
+      ctx.interactedWithUser = true;
       ctx
         .replyWithVideo(
           new InputFile(fs.createReadStream(`${filePath}.mp4`)),
