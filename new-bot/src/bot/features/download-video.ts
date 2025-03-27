@@ -180,7 +180,7 @@ Promise<{success: boolean, videoFileUrl?: string, videoFilePath?: string, servic
           msg: `Failed to download YT video`,
           url: url,
         });
-        newrelic.noticeError(new Error(JSON.stringify("Total yt download error")), { url, ctx: JSON.stringify(ctx) });
+        newrelic.noticeError(new Error("Total yt download error"), { url, ctx: JSON.stringify(ctx) });
         return { success: false };
       }
     }
@@ -225,7 +225,7 @@ Promise<{success: boolean, videoFileUrl?: string, videoFilePath?: string, servic
       msg: `Failed to download video`,
       url: url,
     });
-    newrelic.noticeError(new Error(JSON.stringify("Total video download error")), { url, ctx: JSON.stringify(ctx) });
+    newrelic.noticeError(new Error("Total video download error"), { url, ctx: JSON.stringify(ctx) });
     return { success: false };
   }
 
@@ -478,7 +478,7 @@ async function downloadVideoAndReplace(sourceUrl: string, inlineMessageId: strin
     if (!localFilePath) {
       ctx.logger.debug(`Downloading video file locally for URL: ${videoFileUrl}`);
       if (!videoFileUrl){
-        newrelic.noticeError(new Error(JSON.stringify("Failed to get video url")), {ctx: JSON.stringify(ctx)});
+        newrelic.noticeError(new Error("Failed to get video url"), {ctx: JSON.stringify(ctx)});
         await ctx.api.editMessageTextInline(inlineMessageId, `Failed to get video url. Sorry, please watch in your browser: ${sourceUrl}`);
         return;
       }
@@ -520,7 +520,7 @@ async function downloadVideoAndReplace(sourceUrl: string, inlineMessageId: strin
     newrelic.incrementMetric("features/download-video/inline-update-success", 1);
   } catch (error) {
     newrelic.incrementMetric("features/download-video/inline-update-error", 1);
-    newrelic.noticeError(new Error(JSON.stringify(error)), {ctx: JSON.stringify(ctx)});
+    newrelic.noticeError(toError(error), {ctx: JSON.stringify(ctx)});
     ctx.logger.error(`Error in downloadVideoAndReplace: ${error}`);
     try {
       await ctx.api.editMessageTextInline(inlineMessageId, "An error occurred while processing the video.", {});
