@@ -1,6 +1,7 @@
 import { config } from "#root/config.js";
 import axios from 'axios';
 import newrelic from "newrelic";
+import { toError } from "../utils/error-prettier.js";
 
 export async function fetchYoutubeVideoMetadata(videoId: string): Promise<{
   secondsDuration: number,
@@ -58,7 +59,7 @@ export async function fetchYoutubeVideoUrl(youtubeUrl: string) {
     }
   } catch (error) {
     console.error('Error calling Cobalt API:', error);
-    newrelic.noticeError(new Error(JSON.stringify(error)), { youtubeUrl });
+    newrelic.noticeError(toError(error), { youtubeUrl });
     return { success: false, message: 'Error calling Cobalt API' };
   }
 }
