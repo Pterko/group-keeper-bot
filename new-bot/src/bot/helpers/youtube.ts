@@ -1,5 +1,6 @@
 import { config } from "#root/config.js";
 import axios from 'axios';
+import newrelic from "newrelic";
 
 export async function fetchYoutubeVideoMetadata(videoId: string): Promise<{
   secondsDuration: number,
@@ -52,10 +53,12 @@ export async function fetchYoutubeVideoUrl(youtubeUrl: string) {
       return { success: true, url: response.data.url };
     } else {
       console.log('Cobalt API did not return a video URL:', response.data);
+      newrelic.noticeError(new Error(JSON.stringify("Cobalt API did not return a video URL")), { youtubeUrl });
       return { success: false, message: 'Failed to get video URL from Cobalt API' };
     }
   } catch (error) {
     console.error('Error calling Cobalt API:', error);
+    newrelic.noticeError(new Error(JSON.stringify(error)), { youtubeUrl });
     return { success: false, message: 'Error calling Cobalt API' };
   }
 }
