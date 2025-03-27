@@ -54,7 +54,7 @@ export async function fetchYoutubeVideoUrl(youtubeUrl: string) {
       return { success: true, url: response.data.url };
     } else {
       console.log('Cobalt API did not return a video URL:', response.data);
-      newrelic.noticeError(new Error(JSON.stringify("Cobalt API did not return a video URL")), { youtubeUrl });
+      newrelic.noticeError(new Error("Cobalt API did not return a video URL"), { youtubeUrl });
       return { success: false, message: 'Failed to get video URL from Cobalt API' };
     }
   } catch (error) {
