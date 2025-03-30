@@ -45,7 +45,7 @@ const feature = composer;
 // https://x.com/Catshealdeprsn/status/1824921646181847112
 // https://twitter.com/Catshealdeprsn/status/1824921646181847112
 
-type SupportedVideoService = 'yt' | 'ig' | 'ig-p' | 'tw' | 'vk' | 'other';
+type SupportedVideoService = 'yt' | 'ig' | 'tw' | 'vk' | 'other';
 
 
 function isSupportedVideoUrl(url: string): { supported: boolean; service?: SupportedVideoService } {
@@ -90,9 +90,10 @@ async function resolveInstagramShorthandUrl(url: string): Promise<string | null>
 }
 
 async function processVideoUrl(url: string, ctx: Context, isVideoRequired: boolean = true): 
-Promise<{success: boolean, videoFileUrl?: string, videoFilePath?: string, service?: SupportedVideoService}> {
+Promise<{success: boolean, videoFileUrl?: string, videoFilePath?: string, service?: SupportedVideoService, isProxified?: boolean}> {
   let parsedUrl;
   let service: SupportedVideoService = 'other';
+  let isProxified = false;
   try {
     ctx.logger.debug(`Processing URL: ${url}`);
     
@@ -141,7 +142,8 @@ Promise<{success: boolean, videoFileUrl?: string, videoFilePath?: string, servic
         const proxyResult = await fetchInstagramVideoUrl(url, true);
         if (proxyResult.success) {
           videoFileUrl = proxyResult.url;
-          service = 'ig-p'; // Mark as downloaded with proxy
+          service = 'ig'; // Mark as downloaded with proxy
+          isProxified = true;
         }
       }
     }
@@ -258,7 +260,7 @@ Promise<{success: boolean, videoFileUrl?: string, videoFilePath?: string, servic
     return { success: false };
   }
 
-  return { success: true, videoFileUrl, videoFilePath, service };
+  return { success: true, videoFileUrl, videoFilePath, service, isProxified };
 }
 
 feature.on(
@@ -436,7 +438,7 @@ composer.chosenInlineResult(/download-video-[0-9A-F]{8}-[0-9A-F]{4}-4[0-9A-F]{3}
 async function downloadVideoAndReplace(sourceUrl: string, inlineMessageId: string, ctx: Context): Promise<void> {
   try {
     ctx.logger.debug(`Starting download and replacement for URL: ${sourceUrl}`);
-    const { success, videoFileUrl, videoFilePath, service } = await processVideoUrl(sourceUrl, ctx, true);
+    const { success, videoFileUrl, videoFilePath, service, isProxified } = await processVideoUrl(sourceUrl, ctx, true);
     if (!success) {
       ctx.logger.error(`Failed to process video URL: ${sourceUrl}`);
       await ctx.api.editMessageTextInline(inlineMessageId, "Failed to get video url. Sorry :(")
@@ -448,7 +450,7 @@ async function downloadVideoAndReplace(sourceUrl: string, inlineMessageId: strin
         const urlResult = await ctx.api.editMessageMediaInline(inlineMessageId, {
           type: 'video', 
           media: videoFileUrl,
-          caption: `<a href="${sourceUrl}">Source</a> | Service: ${service}`,
+          caption: `<a href="${sourceUrl}">Source</a> | Service: ${service + (isProxified ? ' (proxified)' : '')}`,
           parse_mode: "HTML",
         })
         ctx.logger.debug(`Update result via url: ${JSON.stringify(urlResult)}`);
@@ -488,7 +490,7 @@ async function downloadVideoAndReplace(sourceUrl: string, inlineMessageId: strin
       {
         type: "video",
         media: sentMsg.video.file_id,
-        caption: `<a href="${sourceUrl}">Source</a> | Service: ${service}`,
+        caption: `<a href="${sourceUrl}">Source</a> | Service: ${service + (isProxified ? ' (proxified)' : '')}`,
         parse_mode: "HTML",
         width: sentMsg.video.width,
         height: sentMsg.video.height,
