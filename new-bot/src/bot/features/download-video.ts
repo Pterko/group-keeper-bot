@@ -23,6 +23,7 @@ const PH_VIDEO_DURATION = 10;
 
 
 const COBALT_API_URL = config.COBALT_API_URL;
+const COBALT_PROXY_API_URL = config.COBALT_PROXIED_API_URL;
 
 const composer = new Composer<Context>();
 const feature = composer;
@@ -89,9 +90,10 @@ async function resolveInstagramShorthandUrl(url: string): Promise<string | null>
 }
 
 async function processVideoUrl(url: string, ctx: Context, isVideoRequired: boolean = true): 
-Promise<{success: boolean, videoFileUrl?: string, videoFilePath?: string, service?: 'yt' | 'ig' | 'tw' | 'vk' | 'other'}> {
+Promise<{success: boolean, videoFileUrl?: string, videoFilePath?: string, service?: SupportedVideoService, isProxified?: boolean}> {
   let parsedUrl;
-  let service: 'yt' | 'ig' | 'tw' | 'vk' | 'other' = 'other';
+  let service: SupportedVideoService = 'other';
+  let isProxified = false;
   try {
     ctx.logger.debug(`Processing URL: ${url}`);
     
@@ -127,12 +129,27 @@ Promise<{success: boolean, videoFileUrl?: string, videoFilePath?: string, servic
     if (ctx.chat?.id) {
       ctx.replyWithChatAction("upload_video");
     }
-    // Imagine that this url is a valid Instagram video
+    // Try first without proxy, then with proxy if needed
     if (isVideoRequired){
-      const result = await fetchInstagramVideoUrl(url);
-      videoFileUrl = result.url;
+      // First attempt without proxy
+      const directResult = await fetchInstagramVideoUrl(url, false);
+      if (directResult.success) {
+        videoFileUrl = directResult.url;
+        service = 'ig';
+      } else {
+        // If direct attempt fails, try with proxy
+        ctx.logger.debug(`Direct Instagram download failed, trying with proxy`);
+        const proxyResult = await fetchInstagramVideoUrl(url, true);
+        if (proxyResult.success) {
+          videoFileUrl = proxyResult.url;
+          service = 'ig'; // Mark as downloaded with proxy
+          isProxified = true;
+        }
+      }
     }
-    service = 'ig';
+    if (!videoFileUrl && !service.includes('ig')) {
+      service = 'ig'; // Default to 'ig' for service type if both methods fail
+    }
   }
 
   if (hostname === "youtube.com" || hostname === "youtu.be") {
@@ -159,8 +176,16 @@ Promise<{success: boolean, videoFileUrl?: string, videoFilePath?: string, servic
       ctx.replyWithChatAction("upload_video");
     }
     if (isVideoRequired){
-      const cobaltToolsResult = await fetchYoutubeVideoUrl(url);
+      // Try without proxy first
+      const cobaltToolsResult = await fetchYoutubeVideoUrl(url, false);
       videoFileUrl = cobaltToolsResult.url;
+      
+      // If first attempt fails, try with proxy
+      if (!videoFileUrl) {
+        ctx.logger.debug(`Direct YouTube download failed, trying with proxy`);
+        const proxyResult = await fetchYoutubeVideoUrl(url, true);
+        videoFileUrl = proxyResult.url;
+      }
   
       if (!videoFileUrl) {
         // We need to use a fallback local yt-dlp download
@@ -190,9 +215,15 @@ Promise<{success: boolean, videoFileUrl?: string, videoFilePath?: string, servic
 
   // Twitter parsing
   if (hostname == "twitter.com" || hostname == "x.com") {
-    // Imagine that this url is a valid Twitter video
-
-    const result = await fetchTwitterVideoUrl(url);
+    // Try without proxy first, then with proxy if needed
+    let result = await fetchTwitterVideoUrl(url, false);
+    
+    // If direct attempt fails, try with proxy
+    if (!result.success) {
+      ctx.logger.debug(`Direct Twitter download failed, trying with proxy`);
+      result = await fetchTwitterVideoUrl(url, true);
+    }
+    
     ctx.logger.debug(`Twitter result: ${JSON.stringify(result)}`);
     videoFileUrl = result.url;
     if (ctx.chat?.id) {
@@ -229,7 +260,7 @@ Promise<{success: boolean, videoFileUrl?: string, videoFilePath?: string, servic
     return { success: false };
   }
 
-  return { success: true, videoFileUrl, videoFilePath, service };
+  return { success: true, videoFileUrl, videoFilePath, service, isProxified };
 }
 
 feature.on(
@@ -257,7 +288,7 @@ feature.on(
       }
 
       try {
-        const { success, videoFileUrl, videoFilePath } = await processVideoUrl(url.text, ctx);
+        const { success, videoFileUrl, videoFilePath, service: resultService } = await processVideoUrl(url.text, ctx);
 
         if (!success) {
           continue;
@@ -293,26 +324,11 @@ feature.on(
   }
 );
 
-// Function to fetch video URL or download video using Fallback API
-// async function fetchFallbackInstagramVideoUrl(instagramUrl: string) {
-//   const fallbackEndpoint = `https://instagram-videos.vercel.app/api/video?postUrl=${encodeURIComponent(instagramUrl)}`;
-//   try {
-//     const response = await axios.get(fallbackEndpoint);
-//     if (response.data.status === 'success' && response.data.data.videoUrl) {
-//       return { success: true, url: response.data.data.videoUrl };
-//     } else {
-//       console.log('Fallback API did not return a video URL:', response.data.message);
-//       return { success: false, message: 'Failed to get video URL from fallback API' };
-//     }
-//   } catch (error) {
-//     console.error('Error calling Fallback API:', error);
-//     return { success: false, message: 'Error calling Fallback API' };
-//   }
-// }
-
-async function fetchTwitterVideoUrl(twitterUrl: string) {
+// Function to fetch video URL or download video using Cobalt API with optional proxy
+async function fetchTwitterVideoUrl(twitterUrl: string, useProxy: boolean = false) {
+  const apiUrl = useProxy ? COBALT_PROXY_API_URL : COBALT_API_URL;
   try {
-    const response = await axios.post(COBALT_API_URL, {
+    const response = await axios.post(apiUrl, {
       url: twitterUrl
     }, {
       headers: {
@@ -321,7 +337,7 @@ async function fetchTwitterVideoUrl(twitterUrl: string) {
       },
     });
 
-    console.log(`Twitter response: ${JSON.stringify(response.data)}`);
+    console.log(`Twitter response (${useProxy ? 'proxy' : 'direct'}): ${JSON.stringify(response.data)}`);
 
     if (['success', 'redirect', 'tunnel'].includes(response.data.status) && response.data.url && !response.data.url.includes('.jpg') && !response.data.url.includes('.png')) {
       return { success: true, url: response.data.url };
@@ -329,15 +345,16 @@ async function fetchTwitterVideoUrl(twitterUrl: string) {
       return { success: false, message: response.data };
     }
   } catch (error) {
-    console.error('Error calling Cobalt API:', error);
+    console.error(`Error calling Cobalt API (${useProxy ? 'proxy' : 'direct'}):`, error);
     return { success: false, message: 'Error calling Cobalt API' };
   }
 }
 
-// Function to fetch video URL or download video using Cobalt API
-async function fetchInstagramVideoUrl(instagramUrl: string ) {
+// Function to fetch video URL or download video using Cobalt API with optional proxy
+async function fetchInstagramVideoUrl(instagramUrl: string, useProxy: boolean = false) {
+  const apiUrl = useProxy ? COBALT_PROXY_API_URL : COBALT_API_URL;
   try {
-    const response = await axios.post(COBALT_API_URL, {
+    const response = await axios.post(apiUrl, {
       url: instagramUrl
     }, {
       headers: {
@@ -349,16 +366,12 @@ async function fetchInstagramVideoUrl(instagramUrl: string ) {
     if (['success', 'redirect', 'tunnel'].includes(response.data.status) && response.data.url) {
       return { success: true, url: response.data.url };
     } else {
-      console.log('Cobalt API did not return a video URL:', response.data);
-      // If Cobalt API fails, try the fallback API
+      console.log(`Cobalt API (${useProxy ? 'proxy' : 'direct'}) did not return a video URL:`, response.data);
       return { success: false, message: response.data };
-      //return await fetchFallbackInstagramVideoUrl(instagramUrl);
     }
   } catch (error) {
-    console.error('Error calling Cobalt API:', error);
-    // If Cobalt API fails, try the fallback API
+    console.error(`Error calling Cobalt API (${useProxy ? 'proxy' : 'direct'}):`, error);
     return { success: false, message: error };
-    //return await fetchFallbackInstagramVideoUrl(instagramUrl);
   }
 }
 
@@ -398,27 +411,6 @@ composer.inlineQuery(/(https?:\/\/(?:www\.|(?!www))[a-zA-Z0-9][a-zA-Z0-9-]+[a-zA
     ], {
       cache_time: 1,
     })
-
-    // ctx.logger.debug(`Video file URL: ${videoFileUrl}`);
-    // ctx.logger.debug(`Video file path: ${videoFilePath}`);
-
-    // if (videoFileUrl && service != 'yt'){
-    //   return ctx.answerInlineQuery([InlineQueryResultBuilder.videoMp4("id-1", "Send Video", videoFileUrl, "https://img.icons8.com/?size=512&id=eAMGjpJ4skFB&format=png", {caption: `<a href="${sourceUrl}">Source</a>`, parse_mode: "HTML", })]);
-    // }
-
-    // if (videoFilePath || (service === 'yt' && videoFileUrl)){
-    //   if (service === 'yt' && videoFileUrl){
-    //     const videoFilePath = await downloadFile(videoFileUrl);
-    //     ctx.logger.debug(`Local video file path: ${videoFilePath}`);
-    //   }
-    //   if (!videoFilePath){
-    //     return;
-    //   }
-    //   const videoSendResult = await ctx.api.sendVideo(config.MEDIA_STORAGE_GROUP_ID, new InputFile(videoFilePath));
-    //   ctx.logger.debug(`Video send result: ${JSON.stringify(videoSendResult)}`);
-    //   return ctx.answerInlineQuery([InlineQueryResultBuilder.videoMp4("id-1", "Send Video", videoSendResult.video.file_id, "https://img.icons8.com/?size=512&id=eAMGjpJ4skFB&format=png", {caption: `<a href="${sourceUrl}">Original</a>`, parse_mode: "HTML", })]);
-    // }
-
   } catch (error) {
     ctx.logger.error(`Error processing inline query: ${error}`);
   } finally {
@@ -445,9 +437,8 @@ composer.chosenInlineResult(/download-video-[0-9A-F]{8}-[0-9A-F]{4}-4[0-9A-F]{3}
 
 async function downloadVideoAndReplace(sourceUrl: string, inlineMessageId: string, ctx: Context): Promise<void> {
   try {
-
     ctx.logger.debug(`Starting download and replacement for URL: ${sourceUrl}`);
-    const { success, videoFileUrl, videoFilePath, service } = await processVideoUrl(sourceUrl, ctx, true);
+    const { success, videoFileUrl, videoFilePath, service, isProxified } = await processVideoUrl(sourceUrl, ctx, true);
     if (!success) {
       ctx.logger.error(`Failed to process video URL: ${sourceUrl}`);
       await ctx.api.editMessageTextInline(inlineMessageId, "Failed to get video url. Sorry :(")
@@ -455,13 +446,11 @@ async function downloadVideoAndReplace(sourceUrl: string, inlineMessageId: strin
     }
 
     if (videoFileUrl) {
-      try{
-
-      
+      try {
         const urlResult = await ctx.api.editMessageMediaInline(inlineMessageId, {
           type: 'video', 
           media: videoFileUrl,
-          caption: `<a href="${sourceUrl}">Source</a> | Service: ${service}`,
+          caption: `<a href="${sourceUrl}">Source</a> | Service: ${service + (isProxified ? ' (proxified)' : '')}`,
           parse_mode: "HTML",
         })
         ctx.logger.debug(`Update result via url: ${JSON.stringify(urlResult)}`);
@@ -501,7 +490,7 @@ async function downloadVideoAndReplace(sourceUrl: string, inlineMessageId: strin
       {
         type: "video",
         media: sentMsg.video.file_id,
-        caption: `<a href="${sourceUrl}">Source</a> | Service: ${service}`,
+        caption: `<a href="${sourceUrl}">Source</a> | Service: ${service + (isProxified ? ' (proxified)' : '')}`,
         parse_mode: "HTML",
         width: sentMsg.video.width,
         height: sentMsg.video.height,

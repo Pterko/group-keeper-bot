@@ -36,6 +36,8 @@ const createConfigFromEnvironment = (environment: NodeJS.ProcessEnv) => {
     MEDIA_STORAGE_GROUP_ID: z.string(),
     YT_COOKIES_PATH: z.string().default(""),
     COBALT_API_URL: z.string(),
+    // URL for proxied Cobalt API, used as fallback when direct API calls fail
+    COBALT_PROXIED_API_URL: z.string(),
   });
 
   if (config.BOT_MODE === "webhook") {

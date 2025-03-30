@@ -40,10 +40,13 @@ export function extractYoutubeVideoId(url: string): string | null {
   return match ? match[1] : null;
 }
 
-export async function fetchYoutubeVideoUrl(youtubeUrl: string) {
+export async function fetchYoutubeVideoUrl(youtubeUrl: string, useProxy: boolean) {
   const cobaltEndpoint = config.COBALT_API_URL;
+  const cobaltProxiedEndpoint = config.COBALT_PROXIED_API_URL;
+  const cobaltEndpointToUse = useProxy ? cobaltProxiedEndpoint : cobaltEndpoint;
+
   try {
-    const response = await axios.post(cobaltEndpoint, { url: youtubeUrl }, {
+    const response = await axios.post(cobaltEndpointToUse, { url: youtubeUrl }, {
       headers: {
         'Accept': 'application/json',
         'Content-Type': 'application/json',
