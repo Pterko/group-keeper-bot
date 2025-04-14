@@ -12,7 +12,6 @@ import downloadFile from '../helpers/download-file.js';
 import { config } from '#root/config.js';
 import { randomUUID } from 'node:crypto';
 import { toError } from '../utils/error-prettier.js';
-import { custom } from 'zod';
 
 
 // --- Placeholder constants (customize these as needed) ---
@@ -389,6 +388,10 @@ async function fetchInstagramVideoUrl(instagramUrl: string, useProxy: boolean = 
 
 
 async function fetchInstagramVideoUrlFastSaver(instagramUrl: string) {
+  if (!FASTSAVER_API_TOKEN) {
+    console.log('FSA_TOKEN is not provided in the configuration');
+    return { success: false, message: 'FSA_TOKEN not configured' };
+  }
   const apiUrl = `https://fastsaverapi.com/get-info?token=${FASTSAVER_API_TOKEN}&url=${encodeURIComponent(instagramUrl)}`;
   try {
     const response = await axios.get(apiUrl, {
@@ -475,7 +478,7 @@ async function downloadVideoAndReplace(sourceUrl: string, inlineMessageId: strin
     if (!success) {
       ctx.logger.error(`Failed to process video URL: ${sourceUrl}`);
       await ctx.api.editMessageTextInline(inlineMessageId, `Failed to get video url. Sorry :( Please watch in your browser: ${sourceUrl}`);
-      newrelic.noticeError(new Error("Failed to get video url"), {ctx: JSON.stringify(ctx)});
+      newrelic.noticeError(new Error(`Failed to get video url for: ${sourceUrl}`), {ctx: JSON.stringify(ctx), url: sourceUrl});
       return;
     }
 
