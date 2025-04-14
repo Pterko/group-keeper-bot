@@ -24,6 +24,7 @@ const PH_VIDEO_DURATION = 10;
 
 const COBALT_API_URL = config.COBALT_API_URL;
 const COBALT_PROXY_API_URL = config.COBALT_PROXIED_API_URL;
+const FASTSAVER_API_TOKEN = config.FSA_TOKEN;
 
 const composer = new Composer<Context>();
 const feature = composer;
@@ -90,10 +91,10 @@ async function resolveInstagramShorthandUrl(url: string): Promise<string | null>
 }
 
 async function processVideoUrl(url: string, ctx: Context, isVideoRequired: boolean = true): 
-Promise<{success: boolean, videoFileUrl?: string, videoFilePath?: string, service?: SupportedVideoService, isProxified?: boolean}> {
+Promise<{success: boolean, videoFileUrl?: string, videoFilePath?: string, service?: SupportedVideoService, customBackend?: 'proxy' | 'FSA' }> {
   let parsedUrl;
   let service: SupportedVideoService = 'other';
-  let isProxified = false;
+  let customBackend: 'proxy' | 'FSA' | undefined = undefined;
   try {
     ctx.logger.debug(`Processing URL: ${url}`);
     
@@ -143,7 +144,17 @@ Promise<{success: boolean, videoFileUrl?: string, videoFilePath?: string, servic
         if (proxyResult.success) {
           videoFileUrl = proxyResult.url;
           service = 'ig'; // Mark as downloaded with proxy
-          isProxified = true;
+          customBackend = 'proxy';
+        }
+      }
+
+      if (!videoFileUrl) {
+        ctx.logger.debug(`Both direct and proxy Instagram download failed, trying FastSaverAPI`);
+        const fsaResult = await fetchInstagramVideoUrlFastSaver(url);
+        if (fsaResult.success) {
+          videoFileUrl = fsaResult.url;
+          service = 'ig';
+          customBackend = 'FSA'; // Mark as downloaded with FastSaverAPI
         }
       }
     }
@@ -260,7 +271,7 @@ Promise<{success: boolean, videoFileUrl?: string, videoFilePath?: string, servic
     return { success: false };
   }
 
-  return { success: true, videoFileUrl, videoFilePath, service, isProxified };
+  return { success: true, videoFileUrl, videoFilePath, service, customBackend };
 }
 
 feature.on(
@@ -376,6 +387,31 @@ async function fetchInstagramVideoUrl(instagramUrl: string, useProxy: boolean = 
 }
 
 
+async function fetchInstagramVideoUrlFastSaver(instagramUrl: string) {
+  if (!FASTSAVER_API_TOKEN) {
+    console.log('FSA_TOKEN is not provided in the configuration');
+    return { success: false, message: 'FSA_TOKEN not configured' };
+  }
+  const apiUrl = `https://fastsaverapi.com/get-info?token=${FASTSAVER_API_TOKEN}&url=${encodeURIComponent(instagramUrl)}`;
+  try {
+    const response = await axios.get(apiUrl, {
+      headers: { Accept: 'application/json' },
+    });
+    const data = response.data;
+    if (!data.error && data.type === "video" && data.download_url) {
+      return {
+        success: true,
+        url: data.download_url,
+        usedFSA: true,
+      };
+    }
+    return { success: false, message: data };
+  } catch (error) {
+    return { success: false, message: error };
+  }
+}
+
+
 composer.inlineQuery(/(https?:\/\/(?:www\.|(?!www))[a-zA-Z0-9][a-zA-Z0-9-]+[a-zA-Z0-9]\.[^\s]{2,}|www\.[a-zA-Z0-9][a-zA-Z0-9-]+[a-zA-Z0-9]\.[^\s]{2,}|https?:\/\/(?:www\.|(?!www))[a-zA-Z0-9]+\.[^\s]{2,}|www\.[a-zA-Z0-9]+\.[^\s]{2,})/, async (ctx, next) => {
   const match = ctx.match; // regex match object
   const query = ctx.inlineQuery.query; // query string
@@ -438,10 +474,11 @@ composer.chosenInlineResult(/download-video-[0-9A-F]{8}-[0-9A-F]{4}-4[0-9A-F]{3}
 async function downloadVideoAndReplace(sourceUrl: string, inlineMessageId: string, ctx: Context): Promise<void> {
   try {
     ctx.logger.debug(`Starting download and replacement for URL: ${sourceUrl}`);
-    const { success, videoFileUrl, videoFilePath, service, isProxified } = await processVideoUrl(sourceUrl, ctx, true);
+    const { success, videoFileUrl, videoFilePath, service, customBackend } = await processVideoUrl(sourceUrl, ctx, true);
     if (!success) {
       ctx.logger.error(`Failed to process video URL: ${sourceUrl}`);
-      await ctx.api.editMessageTextInline(inlineMessageId, "Failed to get video url. Sorry :(")
+      await ctx.api.editMessageTextInline(inlineMessageId, `Failed to get video url. Sorry :( Please watch in your browser: ${sourceUrl}`);
+      newrelic.noticeError(new Error(`Failed to get video url for: ${sourceUrl}`), {ctx: JSON.stringify(ctx), url: sourceUrl});
       return;
     }
 
@@ -450,7 +487,7 @@ async function downloadVideoAndReplace(sourceUrl: string, inlineMessageId: strin
         const urlResult = await ctx.api.editMessageMediaInline(inlineMessageId, {
           type: 'video', 
           media: videoFileUrl,
-          caption: `<a href="${sourceUrl}">Source</a> | Service: ${service + (isProxified ? ' (proxified)' : '')}`,
+          caption: `<a href="${sourceUrl}">Source</a> | Service: ${service + (customBackend ? ` (${customBackend})` : '')}`,
           parse_mode: "HTML",
         })
         ctx.logger.debug(`Update result via url: ${JSON.stringify(urlResult)}`);
@@ -490,7 +527,7 @@ async function downloadVideoAndReplace(sourceUrl: string, inlineMessageId: strin
       {
         type: "video",
         media: sentMsg.video.file_id,
-        caption: `<a href="${sourceUrl}">Source</a> | Service: ${service + (isProxified ? ' (proxified)' : '')}`,
+        caption: `<a href="${sourceUrl}">Source</a> | Service: ${service + (customBackend ? ` (${customBackend})` : '')}`,
         parse_mode: "HTML",
         width: sentMsg.video.width,
         height: sentMsg.video.height,
