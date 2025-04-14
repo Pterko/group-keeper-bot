@@ -38,6 +38,7 @@ const createConfigFromEnvironment = (environment: NodeJS.ProcessEnv) => {
     COBALT_API_URL: z.string(),
     // URL for proxied Cobalt API, used as fallback when direct API calls fail
     COBALT_PROXIED_API_URL: z.string(),
+    FSA_TOKEN: z.string().optional()
   });
 
   if (config.BOT_MODE === "webhook") {
