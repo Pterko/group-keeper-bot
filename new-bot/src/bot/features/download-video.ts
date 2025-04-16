@@ -90,6 +90,19 @@ async function resolveInstagramShorthandUrl(url: string): Promise<string | null>
   }
 }
 
+// Helper to generate a caption for video replies
+function generateVideoCaption(sourceUrl: string, service?: SupportedVideoService, customBackend?: string) {
+  let caption = `<a href="${sourceUrl}">Source</a>`;
+  if (service) {
+    caption += ` | <b>Service:</b> ${service}`;
+    if (customBackend) {
+      caption += ` (${customBackend})`;
+    }
+  }
+  caption += `\n🚀 Try our faster and better bot for video downloading: <b>@LoadVidBot</b>`;
+  return caption;
+}
+
 async function processVideoUrl(url: string, ctx: Context, isVideoRequired: boolean = true): 
 Promise<{success: boolean, videoFileUrl?: string, videoFilePath?: string, service?: SupportedVideoService, customBackend?: 'proxy' | 'FSA' }> {
   let parsedUrl;
@@ -299,7 +312,7 @@ feature.on(
       }
 
       try {
-        const { success, videoFileUrl, videoFilePath, service: resultService } = await processVideoUrl(url.text, ctx);
+        const { success, videoFileUrl, videoFilePath, service: resultService, customBackend } = await processVideoUrl(url.text, ctx);
 
         if (!success) {
           continue;
@@ -308,19 +321,21 @@ feature.on(
         ctx.interactedWithUser = true;
         ctx.triggeredFeatures.push("download-video");
 
+        const caption = generateVideoCaption(url.text, resultService, customBackend);
+
         if (videoFileUrl) {
           newrelic.incrementMetric("features/download-video/requests", 1);
           try {
-            await ctx.replyWithVideo(videoFileUrl, {});
+            await ctx.replyWithVideo(videoFileUrl, { caption, parse_mode: "HTML" });
           } catch (error) {
             ctx.logger.error({ msg: "Error sending video", error });
-            await ctx.replyWithVideo(new InputFile(new URL(videoFileUrl)));
+            await ctx.replyWithVideo(new InputFile(new URL(videoFileUrl)), { caption, parse_mode: "HTML" });
             newrelic.incrementMetric("features/download-video/responses", 1);
           }
         }
         if (videoFilePath) {
           newrelic.incrementMetric("features/download-video/requests", 1);
-          await ctx.replyWithVideo(new InputFile(videoFilePath));
+          await ctx.replyWithVideo(new InputFile(videoFilePath), { caption, parse_mode: "HTML" });
           await fs.unlink(videoFilePath);
           newrelic.incrementMetric("features/download-video/responses", 1);
         }
@@ -487,7 +502,7 @@ async function downloadVideoAndReplace(sourceUrl: string, inlineMessageId: strin
         const urlResult = await ctx.api.editMessageMediaInline(inlineMessageId, {
           type: 'video', 
           media: videoFileUrl,
-          caption: `<a href="${sourceUrl}">Source</a> | Service: ${service + (customBackend ? ` (${customBackend})` : '')}`,
+          caption: generateVideoCaption(sourceUrl, service, customBackend),
           parse_mode: "HTML",
         })
         ctx.logger.debug(`Update result via url: ${JSON.stringify(urlResult)}`);
@@ -527,7 +542,7 @@ async function downloadVideoAndReplace(sourceUrl: string, inlineMessageId: strin
       {
         type: "video",
         media: sentMsg.video.file_id,
-        caption: `<a href="${sourceUrl}">Source</a> | Service: ${service + (customBackend ? ` (${customBackend})` : '')}`,
+        caption: `<a href="${sourceUrl}">Source</a> | <b>Service:</b> ${service}${customBackend ? ` (${customBackend})` : ''}<br>🚀 Try our faster and better bot for video downloading: <b>@LoadVidBot</b>`,
         parse_mode: "HTML",
         width: sentMsg.video.width,
         height: sentMsg.video.height,
