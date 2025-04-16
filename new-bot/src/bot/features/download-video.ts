@@ -502,7 +502,7 @@ async function downloadVideoAndReplace(sourceUrl: string, inlineMessageId: strin
         const urlResult = await ctx.api.editMessageMediaInline(inlineMessageId, {
           type: 'video', 
           media: videoFileUrl,
-          caption: `<a href="${sourceUrl}">Source</a> | Service: ${service + (customBackend ? ` (${customBackend})` : '')}`,
+          caption: generateVideoCaption(sourceUrl, service, customBackend),
           parse_mode: "HTML",
         })
         ctx.logger.debug(`Update result via url: ${JSON.stringify(urlResult)}`);
