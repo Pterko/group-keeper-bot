@@ -99,7 +99,7 @@ function generateVideoCaption(sourceUrl: string, service?: SupportedVideoService
       caption += ` (${customBackend})`;
     }
   }
-  caption += `\n🚀 Try our faster and better bot for video downloading: <b>@LoadVidBot</b>`;
+  caption += `\n🚀 Создай своё итальянское животное: <b><a href="https://t.me/BrainrotAnimalBot?start=guf">@BrainrotAnimalBot</a></b>`;
   return caption;
 }
 
@@ -542,7 +542,7 @@ async function downloadVideoAndReplace(sourceUrl: string, inlineMessageId: strin
       {
         type: "video",
         media: sentMsg.video.file_id,
-        caption: `<a href="${sourceUrl}">Source</a> | <b>Service:</b> ${service}${customBackend ? ` (${customBackend})` : ''}<br>🚀 Try our faster and better bot for video downloading: <b>@LoadVidBot</b>`,
+        caption: `<a href="${sourceUrl}">Source</a> | <b>Service:</b> ${service}${customBackend ? ` (${customBackend})` : ''}<br>🚀 Создай своё итальянское животное: <b><a href="https://t.me/BrainrotAnimalBot?start=guf">@BrainrotAnimalBot</a></b>`,
         parse_mode: "HTML",
         width: sentMsg.video.width,
         height: sentMsg.video.height,
