@@ -13,6 +13,7 @@ export async function connectToDatabase() {
     logger.info(`Connected to MongoDB. Version: ${connection.version}`);
   } catch (error) {
     logger.error("Error connecting to MongoDB", error);
+    logger.error(error);
     process.exit(1);
   }
 }
