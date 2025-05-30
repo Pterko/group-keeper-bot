@@ -103,7 +103,7 @@ const handleWebm = async (ctx: Context, next: () => Promise<void>) => {
   const calculatedFps =
     selectedVideoStream.avg_frame_rate && 
     parseFloat(prettyFrameRate(selectedVideoStream.avg_frame_rate || "", { suffix: "" }) || "0") <= maxFPS
-      ? parseFloat(selectedVideoStream.avg_frame_rate)
+      ? parseFloat(prettyFrameRate(selectedVideoStream.avg_frame_rate || "", { suffix: "" }) || "0")
       : maxFPS;
 
   const startTime = Date.now();
