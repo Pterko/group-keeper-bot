@@ -180,7 +180,7 @@ const messageHandler = async (ctx: Context, next: () => Promise<void>) => {
   Последнее сообщение в чате, на которое тебе следует ответить:
   ${ctx.message.from.first_name || ''} ${ctx.message.from.last_name || ''} (@${ctx.message.from.username || ''}): ${ctx.message.text}
 
-  Ты должен ответить на русском языке!
+  Ты должен ответить на русском языке! Не обращайся к пользователю как к Гуфовскому (Гуф), а если хочешь обратиться, используй его имя.
   `;
 
   console.log('prompt: ', prompt);
