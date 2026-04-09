@@ -1,5 +1,5 @@
 # Use an official Node.js runtime as a parent image, based on Debian
-FROM node:18-bullseye
+FROM node:20-bullseye
 
 # Install curl, FFmpeg, and other dependencies
 RUN apt-get update && apt-get install -y curl ffmpeg && rm -rf /var/lib/apt/lists/*
