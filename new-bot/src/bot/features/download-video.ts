@@ -9,7 +9,9 @@ import axios from 'axios';
 import { addReplyParam } from "@roziscoding/grammy-autoquote";
 import { getVkVideoInfo, downloadVideo } from "../helpers/yt-dlp.js";
 import downloadFile from '../helpers/download-file.js';
+import { createLoadVidApiClient, LoadVidApiUnsupportedUrlError } from '../helpers/loadvidapi.js';
 import { config } from '#root/config.js';
+import { logger } from '#root/logger.js';
 import { randomUUID } from 'node:crypto';
 import { toError } from '../utils/error-prettier.js';
 
@@ -25,6 +27,16 @@ const PH_VIDEO_DURATION = 10;
 const COBALT_API_URL = config.COBALT_API_URL;
 const COBALT_PROXY_API_URL = config.COBALT_PROXIED_API_URL;
 const FASTSAVER_API_TOKEN = config.FSA_TOKEN;
+
+// loadvidapi is tried first for all supported services; the legacy chains
+// (Cobalt / FastSaver / yt-dlp) below stay as fallbacks. No token — no loadvidapi
+const loadVidApi = config.LOADVIDAPI_TOKEN
+  ? createLoadVidApiClient({
+      baseUrl: config.LOADVIDAPI_URL,
+      token: config.LOADVIDAPI_TOKEN,
+      logger,
+    })
+  : null;
 
 const composer = new Composer<Context>();
 const feature = composer;
@@ -46,7 +58,7 @@ const feature = composer;
 // https://x.com/Catshealdeprsn/status/1824921646181847112
 // https://twitter.com/Catshealdeprsn/status/1824921646181847112
 
-type SupportedVideoService = 'yt' | 'ig' | 'tw' | 'vk' | 'other';
+type SupportedVideoService = 'yt' | 'ig' | 'tw' | 'vk' | 'tt' | 'other';
 
 
 function isSupportedVideoUrl(url: string): { supported: boolean; service?: SupportedVideoService } {
@@ -61,7 +73,11 @@ function isSupportedVideoUrl(url: string): { supported: boolean; service?: Suppo
       "instagram.com": "ig",
       "twitter.com": "tw",
       "x.com": "tw",
-      "vk.com": "vk"
+      "vk.com": "vk",
+      // TikTok is only reachable through loadvidapi, there is no legacy chain for it
+      "tiktok.com": "tt",
+      "vm.tiktok.com": "tt",
+      "vt.tiktok.com": "tt"
     } as const;
 
     const service = supportedServices[hostname as keyof typeof supportedServices];
@@ -103,11 +119,33 @@ function generateVideoCaption(sourceUrl: string, service?: SupportedVideoService
   return caption;
 }
 
-async function processVideoUrl(url: string, ctx: Context, isVideoRequired: boolean = true): 
-Promise<{success: boolean, videoFileUrl?: string, videoFilePath?: string, service?: SupportedVideoService, customBackend?: 'proxy' | 'FSA' }> {
+// Tries the loadvidapi resolver. Returns a local file path on success,
+// undefined when loadvidapi is disabled or failed — the caller then
+// falls back to the legacy download chain
+async function tryLoadVidApi(url: string, ctx: Context): Promise<string | undefined> {
+  if (!loadVidApi) {
+    return undefined;
+  }
+  try {
+    const { filePath, job } = await loadVidApi.resolveAndDownload(url);
+    ctx.logger.debug(`loadvidapi resolved ${url} (job ${job.jobId}, service ${job.detectedService})`);
+    return filePath;
+  } catch (error) {
+    if (error instanceof LoadVidApiUnsupportedUrlError) {
+      ctx.logger.warn(`loadvidapi does not support URL ${url}, falling back`);
+    } else {
+      ctx.logger.warn(`loadvidapi failed for ${url}, falling back to legacy downloaders: ${error}`);
+    }
+    newrelic.incrementMetric("features/download-video/loadvidapi-fallback", 1);
+    return undefined;
+  }
+}
+
+async function processVideoUrl(url: string, ctx: Context, isVideoRequired: boolean = true):
+Promise<{success: boolean, videoFileUrl?: string, videoFilePath?: string, service?: SupportedVideoService, customBackend?: 'proxy' | 'FSA' | 'lvapi' }> {
   let parsedUrl;
   let service: SupportedVideoService = 'other';
-  let customBackend: 'proxy' | 'FSA' | undefined = undefined;
+  let customBackend: 'proxy' | 'FSA' | 'lvapi' | undefined = undefined;
   try {
     ctx.logger.debug(`Processing URL: ${url}`);
     
@@ -143,8 +181,16 @@ Promise<{success: boolean, videoFileUrl?: string, videoFilePath?: string, servic
     if (ctx.chat?.id) {
       ctx.replyWithChatAction("upload_video");
     }
-    // Try first without proxy, then with proxy if needed
     if (isVideoRequired){
+      // Top-priority attempt: internal loadvidapi resolver
+      videoFilePath = await tryLoadVidApi(url, ctx);
+      if (videoFilePath) {
+        service = 'ig';
+        customBackend = 'lvapi';
+      }
+    }
+    // Legacy chain: Cobalt direct → Cobalt proxy → FastSaverAPI
+    if (isVideoRequired && !videoFilePath){
       // First attempt without proxy
       const directResult = await fetchInstagramVideoUrl(url, false);
       if (directResult.success) {
@@ -200,27 +246,35 @@ Promise<{success: boolean, videoFileUrl?: string, videoFilePath?: string, servic
       ctx.replyWithChatAction("upload_video");
     }
     if (isVideoRequired){
-      // Try without proxy first
-      const cobaltToolsResult = await fetchYoutubeVideoUrl(url, false);
-      videoFileUrl = cobaltToolsResult.url;
-      
-      // If first attempt fails, try with proxy
-      if (!videoFileUrl) {
-        ctx.logger.debug(`Direct YouTube download failed, trying with proxy`);
-        const proxyResult = await fetchYoutubeVideoUrl(url, true);
-        videoFileUrl = proxyResult.url;
+      // Top-priority attempt: internal loadvidapi resolver
+      videoFilePath = await tryLoadVidApi(url, ctx);
+      if (videoFilePath) {
+        customBackend = 'lvapi';
       }
-  
-      if (!videoFileUrl) {
-        // We need to use a fallback local yt-dlp download
-        ctx.logger.debug(`Using yt-dlp to download video`);
-        try {
-          videoFilePath = await downloadVideo(url);
-        } catch (error) {
-          ctx.logger.error(`Error downloading video with yt-dlp:`);
-          newrelic.noticeError(toError(error), { url, ctx: JSON.stringify(ctx) });
-          console.log(error);
-          throw error;
+
+      if (!videoFilePath) {
+        // Legacy chain: try Cobalt without proxy first
+        const cobaltToolsResult = await fetchYoutubeVideoUrl(url, false);
+        videoFileUrl = cobaltToolsResult.url;
+
+        // If first attempt fails, try with proxy
+        if (!videoFileUrl) {
+          ctx.logger.debug(`Direct YouTube download failed, trying with proxy`);
+          const proxyResult = await fetchYoutubeVideoUrl(url, true);
+          videoFileUrl = proxyResult.url;
+        }
+
+        if (!videoFileUrl) {
+          // We need to use a fallback local yt-dlp download
+          ctx.logger.debug(`Using yt-dlp to download video`);
+          try {
+            videoFilePath = await downloadVideo(url);
+          } catch (error) {
+            ctx.logger.error(`Error downloading video with yt-dlp:`);
+            newrelic.noticeError(toError(error), { url, ctx: JSON.stringify(ctx) });
+            console.log(error);
+            throw error;
+          }
         }
       }
   
@@ -239,21 +293,45 @@ Promise<{success: boolean, videoFileUrl?: string, videoFilePath?: string, servic
 
   // Twitter parsing
   if (hostname == "twitter.com" || hostname == "x.com") {
-    // Try without proxy first, then with proxy if needed
-    let result = await fetchTwitterVideoUrl(url, false);
-    
-    // If direct attempt fails, try with proxy
-    if (!result.success) {
-      ctx.logger.debug(`Direct Twitter download failed, trying with proxy`);
-      result = await fetchTwitterVideoUrl(url, true);
-    }
-    
-    ctx.logger.debug(`Twitter result: ${JSON.stringify(result)}`);
-    videoFileUrl = result.url;
     if (ctx.chat?.id) {
       ctx.replyWithChatAction("upload_video");
     }
+    if (isVideoRequired) {
+      // Top-priority attempt: internal loadvidapi resolver
+      videoFilePath = await tryLoadVidApi(url, ctx);
+      if (videoFilePath) {
+        customBackend = 'lvapi';
+      }
+    }
+    if (!videoFilePath) {
+      // Legacy chain: try without proxy first, then with proxy if needed
+      let result = await fetchTwitterVideoUrl(url, false);
+
+      // If direct attempt fails, try with proxy
+      if (!result.success) {
+        ctx.logger.debug(`Direct Twitter download failed, trying with proxy`);
+        result = await fetchTwitterVideoUrl(url, true);
+      }
+
+      ctx.logger.debug(`Twitter result: ${JSON.stringify(result)}`);
+      videoFileUrl = result.url;
+    }
     service = 'tw';
+  }
+
+  // TikTok goes through loadvidapi only. Without a configured token the branch
+  // is skipped entirely and TikTok links are ignored, exactly as before
+  if (loadVidApi && (hostname === "tiktok.com" || hostname === "vm.tiktok.com" || hostname === "vt.tiktok.com")) {
+    if (ctx.chat?.id) {
+      ctx.replyWithChatAction("upload_video");
+    }
+    if (isVideoRequired) {
+      videoFilePath = await tryLoadVidApi(url, ctx);
+      if (videoFilePath) {
+        customBackend = 'lvapi';
+      }
+    }
+    service = 'tt';
   }
 
   if (hostname == "vk.com") {

@@ -38,7 +38,11 @@ const createConfigFromEnvironment = (environment: NodeJS.ProcessEnv) => {
     COBALT_API_URL: z.string(),
     // URL for proxied Cobalt API, used as fallback when direct API calls fail
     COBALT_PROXIED_API_URL: z.string(),
-    FSA_TOKEN: z.string().optional()
+    FSA_TOKEN: z.string().optional(),
+    // loadvidapi — internal async video resolver, tried first for supported services.
+    // Empty token disables the integration entirely (legacy chains keep working)
+    LOADVIDAPI_URL: z.string().default("https://loadvidapi.fox.wf"),
+    LOADVIDAPI_TOKEN: z.string().default("")
   });
 
   if (config.BOT_MODE === "webhook") {
