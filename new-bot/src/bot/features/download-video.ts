@@ -443,7 +443,15 @@ async function fetchTwitterVideoUrl(twitterUrl: string, useProxy: boolean = fals
 
     console.log(`Twitter response (${useProxy ? 'proxy' : 'direct'}): ${JSON.stringify(response.data)}`);
 
-    if (['success', 'redirect', 'tunnel'].includes(response.data.status) && response.data.url && !response.data.url.includes('.jpg') && !response.data.url.includes('.png')) {
+    // Cobalt tunnel urls carry no file extension, so the reported filename must be
+    // checked as well — tweets with photos must not be posted as videos
+    const responseUrl = typeof response.data.url === 'string' ? response.data.url.toLowerCase() : '';
+    const responseFilename = typeof response.data.filename === 'string' ? response.data.filename.toLowerCase() : '';
+    const isImage = ['.jpg', '.jpeg', '.png', '.webp', '.heic'].some(
+      (ext) => responseUrl.includes(ext) || responseFilename.includes(ext)
+    );
+
+    if (['success', 'redirect', 'tunnel'].includes(response.data.status) && response.data.url && !isImage) {
       return { success: true, url: response.data.url };
     } else {
       return { success: false, message: response.data };
