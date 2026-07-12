@@ -210,6 +210,12 @@ const queue = async.queue(async (task: LLamaTask, callback) => {
   let lastText = "";
   let lastEditAt = 0;
 
+  // Watchdog: axios timeout не покрывает тело стрима, а через прокси соединение
+  // может не закрыться после генерации. Аборт гарантирует, что воркер не зависнет
+  // навсегда и очередь (concurrency 1) не умрёт.
+  const abortController = new AbortController();
+  let streamWatchdog: ReturnType<typeof setTimeout> | undefined;
+
   // typing действует ~5 сек — повторяем, пока модель молотит промпт.
   const typing = setInterval(() => {
     void ctx.replyWithChatAction("typing").catch(() => undefined);
@@ -267,8 +273,11 @@ const queue = async.queue(async (task: LLamaTask, callback) => {
           num_predict: 1024,
         },
       },
-      { ...axiosConfig, responseType: "stream" },
+      { ...axiosConfig, responseType: "stream", signal: abortController.signal },
     );
+
+    // 5 минут — потолок на всю генерацию (норма: выходим раньше по done:true).
+    streamWatchdog = setTimeout(() => abortController.abort(), 300000);
 
     let buffer = "";
     let answer = "";
@@ -303,7 +312,16 @@ const queue = async.queue(async (task: LLamaTask, callback) => {
 
         await renderPartial(answer);
       }
+
+      // Выходим сразу по done:true — не ждём закрытия соединения. Через прокси
+      // (nginx keep-alive) событие end может не прийти, и for-await зависнет навсегда.
+      if (done.done) {
+        break;
+      }
     }
+
+    // Освобождаем сокет (break уже дестроит итератор, но делаем это явно и идемпотентно).
+    (response.data as { destroy?: () => void }).destroy?.();
 
     const final = trimAnswer(answer, done.done_reason as string | undefined);
     if (!final) {
@@ -397,6 +415,9 @@ const queue = async.queue(async (task: LLamaTask, callback) => {
     }
   } finally {
     clearInterval(typing);
+    if (streamWatchdog) {
+      clearTimeout(streamWatchdog);
+    }
     callback();
   }
 }, 1);
