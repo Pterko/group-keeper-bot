@@ -8,6 +8,10 @@ import { chatMessageModel } from "#root/models/chatMessage.js";
 
 const botName = "Гуфовский";
 
+// Метка версии обработчика — видна в логах при старте каждой задачи. Позволяет
+// на проде мгновенно убедиться, что крутится актуальный код, а не старый образ.
+const HANDLER_VERSION = "chat-nostream-v4";
+
 // Модель и параметры генерации держим в коде (см. план перехода на Qwen3.5).
 // Меняются редко и должны версионироваться — это «характер» бота, а не секрет окружения.
 const OLLAMA_MODEL =
@@ -63,17 +67,42 @@ function escapeHtml(text: string): string {
     .replaceAll(">", "&gt;");
 }
 
-// Конвертируем «классический» markdown от модели в безопасный Telegram-HTML.
-// HTML устойчив к неэкранированной пунктуации (в отличие от MarkdownV2) и покрывает
-// нужный набор: жирный / курсив / код / спойлер.
-function toTelegramHtml(text: string): string {
-  return escapeHtml(text)
-    .replace(/```([\s\S]*?)```/g, (_m, code: string) => `<pre>${code.trim()}</pre>`)
-    .replace(/`([^`\n]+)`/g, "<code>$1</code>")
+// Инлайновая разметка применяется ТОЛЬКО к не-кодовым сегментам (см. toTelegramHtml),
+// поэтому здесь безопасно гонять regex по всей переданной строке.
+function styleInline(text: string): string {
+  return text
     .replace(/\*\*([^\n*]+?)\*\*/g, "<b>$1</b>")
     .replace(/\|\|([^\n|]+?)\|\|/g, "<tg-spoiler>$1</tg-spoiler>")
     .replace(/(^|[\s(«"])_([^_\n]+?)_(?=$|[\s).,!?:;»"])/g, "$1<i>$2</i>")
     .replace(/(^|[\s(«"])\*([^\n*]+?)\*(?=$|[\s).,!?:;»"])/g, "$1<i>$2</i>");
+}
+
+// Конвертируем «классический» markdown от модели в безопасный Telegram-HTML.
+// HTML устойчив к неэкранированной пунктуации (в отличие от MarkdownV2) и покрывает
+// нужный набор: жирный / курсив / код / спойлер.
+//
+// Текст разбиваем на кодовые и не-кодовые сегменты: код отдаём дословно (в <pre>/<code>),
+// а bold/italic/spoiler применяем только к не-коду. Так исключена запрещённая Bot API
+// вложенность code/pre внутри b/i (иначе Telegram вернёт 400 и форматирование потеряется).
+function toTelegramHtml(text: string): string {
+  const escaped = escapeHtml(text);
+  const codePattern = /```[\s\S]*?```|`[^`\n]+`/g;
+
+  let result = "";
+  let last = 0;
+  for (const match of escaped.matchAll(codePattern)) {
+    const index = match.index ?? 0;
+    result += styleInline(escaped.slice(last, index));
+
+    const token = match[0];
+    result += token.startsWith("```")
+      ? `<pre>${token.slice(3, -3).trim()}</pre>`
+      : `<code>${token.slice(1, -1)}</code>`;
+    last = index + token.length;
+  }
+  result += styleInline(escaped.slice(last));
+
+  return result;
 }
 
 function removeLastUncompletedSentence(text: string): string {
@@ -196,71 +225,51 @@ const fewShotMessages: OllamaMessage[] = [
   },
 ];
 
-const queue = async.queue(async (task: LLamaTask, callback) => {
+type OllamaChatResponse = {
+  message?: { content?: string };
+  error?: unknown;
+  model?: string;
+  done_reason?: string;
+  eval_count?: number;
+  eval_duration?: number;
+  prompt_eval_count?: number;
+  prompt_eval_duration?: number;
+  total_duration?: number;
+  load_duration?: number;
+};
+
+const queue = async.queue(async (task: LLamaTask) => {
   const { ctx, messages, randSay } = task;
 
   if (!ctx.message || !ctx.message.text) {
-    callback();
     return;
   }
 
   const replyToId = ctx.message.message_id;
+  const log = ctx.logger;
+  const startedAt = Date.now();
 
-  let sent: Awaited<ReturnType<typeof ctx.reply>> | undefined;
-  let lastText = "";
-  let lastEditAt = 0;
-
-  // Watchdog: axios timeout не покрывает тело стрима, а через прокси соединение
-  // может не закрыться после генерации. Аборт гарантирует, что воркер не зависнет
-  // навсегда и очередь (concurrency 1) не умрёт.
-  const abortController = new AbortController();
-  let streamWatchdog: ReturnType<typeof setTimeout> | undefined;
-
-  // typing действует ~5 сек — повторяем, пока модель молотит промпт.
+  // typing действует ~5 сек — повторяем, пока модель генерирует ответ (без стрима
+  // это один длинный POST, поэтому индикатор надо продлевать).
   const typing = setInterval(() => {
     void ctx.replyWithChatAction("typing").catch(() => undefined);
   }, 4000);
 
-  // Промежуточный рендер — всегда plain (parse_mode: undefined), т.к. частичный
-  // markdown содержит незакрытые сущности и ломает editMessageText.
-  const renderPartial = async (text: string): Promise<void> => {
-    const shown = text.trim().slice(0, 4000);
-    if (!shown) {
-      return;
-    }
-
-    const now = Date.now();
-
-    if (!sent) {
-      sent = await ctx.reply(shown, {
-        reply_to_message_id: replyToId,
-        parse_mode: undefined,
-      });
-      lastText = shown;
-      lastEditAt = now;
-      return;
-    }
-
-    if (now - lastEditAt < 1000 || shown === lastText) {
-      return;
-    }
-
-    try {
-      await sent.editText(shown, { parse_mode: undefined });
-      lastText = shown;
-      lastEditAt = now;
-    } catch {
-      // «message is not modified» / rate limit — игнорируем, финал всё равно перезапишет
-    }
-  };
-
   try {
-    const response = await axios.post(
+    log.info({
+      msg: "llama request",
+      version: HANDLER_VERSION,
+      url: OLLAMA_CHAT_URL,
+      model: OLLAMA_MODEL,
+      messages: messages.length,
+    });
+
+    const response = await axios.post<OllamaChatResponse>(
       OLLAMA_CHAT_URL,
       {
         model: OLLAMA_MODEL,
         messages,
-        stream: true,
+        stream: false,
         think: false,
         keep_alive: "30m",
         options: {
@@ -273,107 +282,57 @@ const queue = async.queue(async (task: LLamaTask, callback) => {
           num_predict: 1024,
         },
       },
-      { ...axiosConfig, responseType: "stream", signal: abortController.signal },
+      axiosConfig,
     );
 
-    // 5 минут — потолок на всю генерацию (норма: выходим раньше по done:true).
-    streamWatchdog = setTimeout(() => abortController.abort(), 300000);
+    const data = response.data;
 
-    let buffer = "";
-    let answer = "";
-    let done: Record<string, unknown> = {};
-
-    // Ollama отдаёт NDJSON; одна JSON-строка может быть разорвана между chunk — буферизуем.
-    for await (const chunk of response.data as AsyncIterable<Buffer>) {
-      buffer += chunk.toString("utf8");
-      const parts = buffer.split("\n");
-      buffer = parts.pop() ?? "";
-
-      for (const part of parts) {
-        const line = part.trim();
-        if (!line) {
-          continue;
-        }
-
-        let event: {
-          message?: { content?: string };
-          done?: boolean;
-        } & Record<string, unknown>;
-        try {
-          event = JSON.parse(line);
-        } catch {
-          continue;
-        }
-
-        answer += event.message?.content ?? "";
-        if (event.done) {
-          done = event;
-        }
-
-        await renderPartial(answer);
-      }
-
-      // Выходим сразу по done:true — не ждём закрытия соединения. Через прокси
-      // (nginx keep-alive) событие end может не прийти, и for-await зависнет навсегда.
-      if (done.done) {
-        break;
-      }
+    // Ollama при stream:false может вернуть HTTP 200 с полем error вместо ответа.
+    if (data.error) {
+      throw new Error(`ollama error: ${String(data.error)}`);
     }
 
-    // Освобождаем сокет (break уже дестроит итератор, но делаем это явно и идемпотентно).
-    (response.data as { destroy?: () => void }).destroy?.();
-
-    const final = trimAnswer(answer, done.done_reason as string | undefined);
+    const answer = data.message?.content ?? "";
+    const final = trimAnswer(answer, data.done_reason);
     if (!final) {
       throw new Error("empty answer from ollama");
     }
 
-    // Финальный рендер — с форматированием (HTML), с откатом на plain при ошибке парсинга.
+    // Рендер — с форматированием (HTML), с откатом на plain при ошибке парсинга.
     const html = toTelegramHtml(final);
-    if (!sent) {
-      sent = await ctx
-        .reply(html, { reply_to_message_id: replyToId, parse_mode: "HTML" })
-        .catch(() =>
-          ctx.reply(final, {
-            reply_to_message_id: replyToId,
-            parse_mode: undefined,
-          }),
-        );
-    } else if (html !== lastText) {
-      try {
-        await sent.editText(html, { parse_mode: "HTML" });
-      } catch {
-        try {
-          await sent.editText(final, { parse_mode: undefined });
-        } catch {
-          // текст уже показан plain-стримом — оставляем как есть
-        }
-      }
-    }
+    const sent = await ctx
+      .reply(html, { reply_to_message_id: replyToId, parse_mode: "HTML" })
+      .catch(() =>
+        ctx.reply(final, {
+          reply_to_message_id: replyToId,
+          parse_mode: undefined,
+        }),
+      );
 
-    // Метрики генерации из финального события done:true.
-    const evalCount = Number(done.eval_count ?? 0);
-    const evalDuration = Number(done.eval_duration ?? 0);
-    const promptCount = Number(done.prompt_eval_count ?? 0);
-    const promptDuration = Number(done.prompt_eval_duration ?? 0);
+    // Метрики генерации.
+    const evalCount = Number(data.eval_count ?? 0);
+    const evalDuration = Number(data.eval_duration ?? 0);
+    const promptCount = Number(data.prompt_eval_count ?? 0);
+    const promptDuration = Number(data.prompt_eval_duration ?? 0);
     const generationTps = evalDuration ? (evalCount * 1e9) / evalDuration : 0;
     const promptTps = promptDuration ? (promptCount * 1e9) / promptDuration : 0;
 
-    ctx.logger.info({
+    log.info({
       msg: "llama generation",
-      model: done.model,
+      model: data.model,
       promptTokens: promptCount,
       completionTokens: evalCount,
       promptTps: Number(promptTps.toFixed(1)),
       generationTps: Number(generationTps.toFixed(1)),
-      totalMs: done.total_duration
-        ? Math.round(Number(done.total_duration) / 1e6)
+      totalMs: data.total_duration
+        ? Math.round(data.total_duration / 1e6)
         : undefined,
-      loadMs: done.load_duration
-        ? Math.round(Number(done.load_duration) / 1e6)
+      loadMs: data.load_duration
+        ? Math.round(data.load_duration / 1e6)
         : undefined,
-      doneReason: done.done_reason,
+      doneReason: data.done_reason,
       chars: final.length,
+      elapsedMs: Date.now() - startedAt,
     });
 
     newrelic.incrementMetric("features/llama/responses", 1);
@@ -392,21 +351,21 @@ const queue = async.queue(async (task: LLamaTask, callback) => {
             first_name: botName,
             username: ctx.me.username,
           },
-          message_id: sent?.message_id,
+          message_id: sent.message_id,
         },
       });
     } catch (error) {
       newrelic.incrementMetric("features/llama/errors", 1);
-      ctx.logger.error({ msg: "Error while saving message to db", error });
+      log.error({ msg: "Error while saving message to db", error });
     }
   } catch (error) {
     newrelic.incrementMetric("features/llama/errors", 1);
-    ctx.logger.error({
+    log.error({
       msg: "llama generation failed",
       error: error instanceof Error ? error.message : error,
+      elapsedMs: Date.now() - startedAt,
     });
-    // Если что-то уже показано пользователю (sent) — не плодим второе сообщение.
-    if (!randSay && !sent) {
+    if (!randSay) {
       await ctx
         .reply("Не удалось сгенерировать ответ. Попробуйте позже.", {
           reply_to_message_id: replyToId,
@@ -415,10 +374,6 @@ const queue = async.queue(async (task: LLamaTask, callback) => {
     }
   } finally {
     clearInterval(typing);
-    if (streamWatchdog) {
-      clearTimeout(streamWatchdog);
-    }
-    callback();
   }
 }, 1);
 
