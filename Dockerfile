@@ -1,8 +1,13 @@
 # Use an official Node.js runtime as a parent image, based on Debian
 FROM node:20-bullseye
 
-# Install curl, FFmpeg, and other dependencies
-RUN apt-get update && apt-get install -y curl ffmpeg && rm -rf /var/lib/apt/lists/*
+# Install curl, FFmpeg, and other dependencies.
+# Debian mirrors occasionally reset the connection mid-download and fail the build;
+# retry transient fetch errors instead of aborting the whole image build.
+RUN echo 'Acquire::Retries "5";' > /etc/apt/apt.conf.d/80-retries && \
+    apt-get update && \
+    apt-get install -y --fix-missing curl ffmpeg && \
+    rm -rf /var/lib/apt/lists/*
 
 # Download yt-dlp binary and make it executable
 RUN curl -L https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp_linux -o /usr/local/bin/yt-dlp && \
