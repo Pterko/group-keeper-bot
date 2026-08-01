@@ -1,6 +1,6 @@
 import { Composer } from "grammy";
 import { Context } from "#root/bot/context.js";
-import googlethis from "googlethis";
+import { searchDdgImages } from "#root/bot/helpers/ddg-images.js";
 import { InlineKeyboard } from "grammy";
 
 const composer = new Composer<Context>();
@@ -19,8 +19,8 @@ interface SavedMessage {
 const savedMessagesWithPhotos: Record<string, SavedMessage> = {};
 
 async function getPictureByKeysV2(key: string, safe = false) {
-  const imagesFromGoogle = await googlethis.image(key, { safe });
-  const images = imagesFromGoogle.map((x: any) => x.url);
+  const foundImages = await searchDdgImages(key, { safe });
+  const images = foundImages.map((x) => x.url);
   const url = images[getRandomInt(0, Math.min(images.length - 1, 20))];
   return { status: "success", url, images };
 }
