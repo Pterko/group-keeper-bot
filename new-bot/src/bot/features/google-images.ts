@@ -1,12 +1,53 @@
-import { Composer } from "grammy";
+import { Composer, InputFile } from "grammy";
 import { Context } from "#root/bot/context.js";
 import { searchDdgImages } from "#root/bot/helpers/ddg-images.js";
 import { InlineKeyboard } from "grammy";
+import axios from "axios";
 
 const composer = new Composer<Context>();
 
+// Telegram refuses uploads above this, so there is no point in downloading more
+const MAX_UPLOAD_BYTES = 10 * 1024 * 1024;
+const DOWNLOAD_TIMEOUT_MS = 15_000;
+
+interface ImageReplyOptions {
+  reply_to_message_id: number;
+  caption?: string;
+  reply_markup?: InlineKeyboard;
+}
+
 function getRandomInt(min: number, max: number) {
   return Math.floor(Math.random() * (max - min + 1)) + min;
+}
+
+function getFileName(url: string, kind: "photo" | "document") {
+  const fromUrl = new URL(url).pathname.split("/").pop();
+  return fromUrl && /\.[a-z0-9]{2,4}$/i.test(fromUrl) ? fromUrl : `image.${kind === "document" ? "gif" : "jpg"}`;
+}
+
+async function downloadImage(url: string) {
+  const response = await axios.get<ArrayBuffer>(url, {
+    responseType: "arraybuffer",
+    timeout: DOWNLOAD_TIMEOUT_MS,
+    maxContentLength: MAX_UPLOAD_BYTES,
+  });
+  return Buffer.from(response.data);
+}
+
+// Passing a URL lets Telegram fetch the file itself, which is cheap but fails whenever
+// its fetcher cannot reach the host or times out on it. In that case the bot downloads
+// the image and uploads the bytes instead — the caller only sees a rejection if both fail
+async function replyWithImage(ctx: Context, url: string, kind: "photo" | "document", options: ImageReplyOptions) {
+  const send = (image: string | InputFile) =>
+    kind === "document" ? ctx.replyWithDocument(image, options) : ctx.replyWithPhoto(image, options);
+
+  try {
+    return await send(url);
+  } catch (error) {
+    ctx.logger.warn({ msg: "telegram failed to fetch image by url, retrying as an upload", url, err: error });
+  }
+
+  return await send(new InputFile(await downloadImage(url), getFileName(url, kind)));
 }
 
 interface SavedMessage {
@@ -38,13 +79,9 @@ composer.hears(/^(покажи )/i, async (ctx) => {
     ctx.interactedWithUser = true;
     ctx.triggeredFeatures.push("google-images");
     
-    if (getResult.url.endsWith(".gif")) {
-      await ctx.replyWithDocument(getResult.url, { reply_to_message_id: ctx.message.message_id })
-        .catch(() => urlFallback(ctx, getResult.url));
-    } else {
-      await ctx.replyWithPhoto(getResult.url, { reply_to_message_id: ctx.message.message_id })
-        .catch(() => urlFallback(ctx, getResult.url));
-    }
+    const kind = getResult.url.endsWith(".gif") ? "document" : "photo";
+    await replyWithImage(ctx, getResult.url, kind, { reply_to_message_id: ctx.message.message_id })
+      .catch(() => urlFallback(ctx, getResult.url));
   }
 });
 
@@ -70,7 +107,7 @@ composer.hears(/^(выдача )/i, async (ctx) => {
       .text("<<<<", "prev_img")
       .text(">>>>", "next_img");
 
-    const result = await ctx.replyWithPhoto(firstUrl, {
+    const result = await replyWithImage(ctx, firstUrl, "photo", {
       caption: text,
       reply_to_message_id: ctx.message.message_id,
       reply_markup: keyboard
