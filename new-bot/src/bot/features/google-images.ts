@@ -9,6 +9,10 @@ const composer = new Composer<Context>();
 // Telegram refuses uploads above this, so there is no point in downloading more
 const MAX_UPLOAD_BYTES = 10 * 1024 * 1024;
 const DOWNLOAD_TIMEOUT_MS = 15_000;
+// How many different images to try before giving up on the request entirely
+const MAX_SEND_ATTEMPTS = 3;
+// Results past this point get noticeably less relevant, so picks stay within the top
+const CANDIDATE_POOL_SIZE = 21;
 
 interface ImageReplyOptions {
   reply_to_message_id: number;
@@ -50,6 +54,35 @@ async function replyWithImage(ctx: Context, url: string, kind: "photo" | "docume
   return await send(new InputFile(await downloadImage(url), getFileName(url, kind)));
 }
 
+// A dead host or a broken file should cost the user a different picture, not the
+// whole answer, so every candidate is tried before the caller has to give up
+async function sendFirstWorkingImage(
+  ctx: Context,
+  candidates: string[],
+  buildOptions: (index: number) => ImageReplyOptions,
+  allowDocuments: boolean,
+) {
+  for (const [index, url] of candidates.entries()) {
+    const kind = allowDocuments && url.endsWith(".gif") ? "document" : "photo";
+    try {
+      return { message: await replyWithImage(ctx, url, kind, buildOptions(index)), index, url };
+    } catch (error) {
+      ctx.logger.warn({ msg: "could not send image, trying the next candidate", url, attempt: index + 1, err: error });
+    }
+  }
+  return null;
+}
+
+// Random order, so a repeated query does not keep returning the same picture
+function pickRandomCandidates(images: string[], count: number) {
+  const pool = images.slice(0, CANDIDATE_POOL_SIZE);
+  const candidates: string[] = [];
+  while (pool.length > 0 && candidates.length < count) {
+    candidates.push(...pool.splice(getRandomInt(0, pool.length - 1), 1));
+  }
+  return candidates;
+}
+
 interface SavedMessage {
   currentPic: number;
   maxPics: number;
@@ -62,8 +95,7 @@ const savedMessagesWithPhotos: Record<string, SavedMessage> = {};
 async function getPictureByKeysV2(key: string, safe = false) {
   const foundImages = await searchDdgImages(key, { safe });
   const images = foundImages.map((x) => x.url);
-  const url = images[getRandomInt(0, Math.min(images.length - 1, 20))];
-  return { status: "success", url, images };
+  return { status: "success", images };
 }
 
 composer.hears(/^(покажи )/i, async (ctx) => {
@@ -79,9 +111,14 @@ composer.hears(/^(покажи )/i, async (ctx) => {
     ctx.interactedWithUser = true;
     ctx.triggeredFeatures.push("google-images");
     
-    const kind = getResult.url.endsWith(".gif") ? "document" : "photo";
-    await replyWithImage(ctx, getResult.url, kind, { reply_to_message_id: ctx.message.message_id })
-      .catch(() => urlFallback(ctx, getResult.url));
+    const candidates = pickRandomCandidates(getResult.images, MAX_SEND_ATTEMPTS);
+    const replyOptions = { reply_to_message_id: ctx.message.message_id };
+    const sent = await sendFirstWorkingImage(ctx, candidates, () => replyOptions, true);
+
+    if (!sent) {
+      ctx.logger.warn({ msg: "every image candidate failed, replying with a link", query: searchKey });
+      urlFallback(ctx, candidates[0]);
+    }
   }
 });
 
@@ -96,25 +133,34 @@ composer.hears(/^(выдача )/i, async (ctx) => {
   const getResult = await getPictureByKeysV2(searchKey);
 
   if (getResult.status === "success") {
-    const firstUrl = getResult.images[0];
-    const text = generateMessageForListing({
-      currentImageIndex: 0,
-      totalImagesCount: getResult.images.length,
-      query: searchKey
-    });
-
     const keyboard = new InlineKeyboard()
       .text("<<<<", "prev_img")
       .text(">>>>", "next_img");
 
-    const result = await replyWithImage(ctx, firstUrl, "photo", {
-      caption: text,
-      reply_to_message_id: ctx.message.message_id,
-      reply_markup: keyboard
-    });
+    // The listing starts at the first image that Telegram actually accepts, so the
+    // caption and the carousel position stay in sync with what was really sent
+    const sent = await sendFirstWorkingImage(
+      ctx,
+      getResult.images.slice(0, MAX_SEND_ATTEMPTS),
+      (index) => ({
+        caption: generateMessageForListing({
+          currentImageIndex: index,
+          totalImagesCount: getResult.images.length,
+          query: searchKey
+        }),
+        reply_to_message_id: ctx.message!.message_id,
+        reply_markup: keyboard
+      }),
+      false
+    );
 
-    savedMessagesWithPhotos[`${result.chat.id}_${result.message_id}`] = {
-      currentPic: 0,
+    if (!sent) {
+      ctx.logger.warn({ msg: "every image candidate failed for the listing", query: searchKey });
+      return;
+    }
+
+    savedMessagesWithPhotos[`${sent.message.chat.id}_${sent.message.message_id}`] = {
+      currentPic: sent.index,
       maxPics: getResult.images.length,
       items: getResult.images,
       query: searchKey
