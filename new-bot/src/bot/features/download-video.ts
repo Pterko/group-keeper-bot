@@ -115,7 +115,7 @@ function generateVideoCaption(sourceUrl: string, service?: SupportedVideoService
       caption += ` (${customBackend})`;
     }
   }
-  caption += `\n🚀 Создай своё итальянское животное: <b><a href="https://t.me/BrainrotAnimalBot?start=guf">@BrainrotAnimalBot</a></b>`;
+  caption += ``;
   return caption;
 }
 
