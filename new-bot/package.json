@@ -10,7 +10,7 @@
     "lint": "eslint .",
     "format": "eslint . --fix",
     "typecheck": "tsc",
-    "test": "node --import tsx --test \"src/**/*.test.ts\"",
+    "test": "find src -type f -name '*.test.ts' -print0 | xargs -0 node --import tsx --test",
     "build": "tsc --noEmit false",
     "dev": "tsc-watch --onSuccess \"tsx -r dotenv/config -r newrelic ./src/main.ts\"",
     "start": "tsc && tsx -r dotenv/config -r newrelic ./src/main.ts",
